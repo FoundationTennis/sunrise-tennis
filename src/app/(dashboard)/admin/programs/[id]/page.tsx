@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatTime } from '@/lib/utils/dates'
 import { ProgramEditForm } from './program-edit-form'
+import { AdminEnrolForm } from './admin-enrol-form'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -11,12 +12,16 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: program }, { data: roster }] = await Promise.all([
+  const [{ data: program }, { data: roster }, { data: allFamilies }] = await Promise.all([
     supabase.from('programs').select('*').eq('id', id).single(),
     supabase.from('program_roster')
       .select('id, status, enrolled_at, players(id, first_name, last_name, ball_color, families(display_id, family_name))')
       .eq('program_id', id)
       .order('enrolled_at'),
+    supabase.from('families')
+      .select('id, display_id, family_name, players(id, first_name, last_name)')
+      .eq('status', 'active')
+      .order('display_id'),
   ])
 
   if (!program) notFound()
@@ -124,6 +129,21 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
             <p className="mt-4 text-sm text-gray-500">No players enrolled yet.</p>
           )}
         </div>
+
+        {/* Admin enrol on behalf */}
+        <AdminEnrolForm
+          programId={id}
+          families={(allFamilies ?? []).map(f => ({
+            id: f.id,
+            displayId: f.display_id,
+            familyName: f.family_name,
+            players: ((f.players as unknown as { id: string; first_name: string; last_name: string }[]) ?? []).map(p => ({
+              id: p.id,
+              firstName: p.first_name,
+              lastName: p.last_name,
+            })),
+          }))}
+        />
 
         {/* Edit */}
         <ProgramEditForm program={program} />

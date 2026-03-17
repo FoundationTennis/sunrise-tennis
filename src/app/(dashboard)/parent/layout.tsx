@@ -1,14 +1,13 @@
 import Link from 'next/link'
 
 const navItems = [
-  { href: '/admin', label: 'Overview' },
-  { href: '/admin/families', label: 'Families' },
-  { href: '/admin/programs', label: 'Programs' },
-  { href: '/admin/sessions', label: 'Sessions' },
-  { href: '/admin/payments', label: 'Payments' },
+  { href: '/parent', label: 'Overview' },
+  { href: '/parent/programs', label: 'Programs' },
+  { href: '/parent/payments', label: 'Payments' },
+  { href: '/parent/settings', label: 'Settings' },
 ]
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function ParentLayout({ children }: { children: React.ReactNode }) {
   return (
     <div>
       <nav className="mb-6 flex gap-1 border-b border-gray-200">

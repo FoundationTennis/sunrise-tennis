@@ -340,6 +340,53 @@ export type Database = {
           },
         ]
       }
+      invitations: {
+        Row: {
+          id: string
+          family_id: string
+          email: string
+          token: string
+          status: string
+          created_by: string | null
+          claimed_by: string | null
+          created_at: string | null
+          expires_at: string | null
+          claimed_at: string | null
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          email: string
+          token: string
+          status?: string
+          created_by?: string | null
+          claimed_by?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          claimed_at?: string | null
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          email?: string
+          token?: string
+          status?: string
+          created_by?: string | null
+          claimed_by?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          claimed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount_cents: number

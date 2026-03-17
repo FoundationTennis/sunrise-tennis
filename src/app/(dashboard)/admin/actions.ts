@@ -165,6 +165,39 @@ export async function updatePlayer(playerId: string, familyId: string, formData:
   redirect(`/admin/families/${familyId}/players/${playerId}`)
 }
 
+// ── Invitations ────────────────────────────────────────────────────────
+
+export async function createInvitation(familyId: string, formData: FormData) {
+  const supabase = await createClient()
+
+  const email = formData.get('email') as string
+  if (!email) {
+    redirect(`/admin/families/${familyId}?error=${encodeURIComponent('Email is required')}`)
+  }
+
+  // Generate a URL-safe token
+  const token = crypto.randomUUID()
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase
+    .from('invitations')
+    .insert({
+      family_id: familyId,
+      email,
+      token,
+      status: 'pending',
+      created_by: user?.id,
+    })
+
+  if (error) {
+    redirect(`/admin/families/${familyId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/admin/families/${familyId}`)
+  redirect(`/admin/families/${familyId}?invited=${encodeURIComponent(token)}`)
+}
+
 // ── Programs ────────────────────────────────────────────────────────────
 
 export async function createProgram(formData: FormData) {
@@ -249,4 +282,138 @@ export async function updateProgram(id: string, formData: FormData) {
   revalidatePath(`/admin/programs/${id}`)
   revalidatePath('/admin/programs')
   redirect(`/admin/programs/${id}`)
+}
+
+// ── Sessions ───────────────────────────────────────────────────────────
+
+export async function createSession(formData: FormData) {
+  const supabase = await createClient()
+
+  const programId = formData.get('program_id') as string
+  const date = formData.get('date') as string
+  const startTime = formData.get('start_time') as string
+  const endTime = formData.get('end_time') as string
+  const sessionType = formData.get('session_type') as string
+  const coachId = formData.get('coach_id') as string
+  const venueId = formData.get('venue_id') as string
+
+  const { error } = await supabase
+    .from('sessions')
+    .insert({
+      program_id: programId || null,
+      date,
+      start_time: startTime || null,
+      end_time: endTime || null,
+      session_type: sessionType,
+      coach_id: coachId || null,
+      venue_id: venueId || null,
+      status: 'scheduled',
+    })
+
+  if (error) {
+    redirect(`/admin/sessions?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath('/admin/sessions')
+  redirect('/admin/sessions')
+}
+
+export async function updateAttendance(sessionId: string, formData: FormData) {
+  const supabase = await createClient()
+
+  // Parse attendance entries from form: attendance_PLAYERID = present|absent|late
+  const entries: { playerId: string; status: string }[] = []
+  formData.forEach((value, key) => {
+    if (key.startsWith('attendance_')) {
+      entries.push({ playerId: key.replace('attendance_', ''), status: value as string })
+    }
+  })
+
+  // Upsert attendance records
+  for (const entry of entries) {
+    await supabase
+      .from('attendances')
+      .upsert(
+        { session_id: sessionId, player_id: entry.playerId, status: entry.status },
+        { onConflict: 'session_id,player_id' }
+      )
+  }
+
+  revalidatePath(`/admin/sessions/${sessionId}`)
+  redirect(`/admin/sessions/${sessionId}`)
+}
+
+export async function cancelSession(sessionId: string, formData: FormData) {
+  const supabase = await createClient()
+  const reason = formData.get('reason') as string
+
+  const { error } = await supabase
+    .from('sessions')
+    .update({
+      status: 'cancelled',
+      cancellation_reason: reason || null,
+    })
+    .eq('id', sessionId)
+
+  if (error) {
+    redirect(`/admin/sessions/${sessionId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/admin/sessions/${sessionId}`)
+  revalidatePath('/admin/sessions')
+  redirect('/admin/sessions')
+}
+
+// ── Admin Booking on Behalf ────────────────────────────────────────────
+
+export async function adminBookPlayer(formData: FormData) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const familyId = formData.get('family_id') as string
+  const playerId = formData.get('player_id') as string
+  const programId = formData.get('program_id') as string
+  const bookingType = formData.get('booking_type') as string
+  const notes = formData.get('notes') as string
+
+  // Add to roster if term/casual enrolment
+  const { data: existing } = await supabase
+    .from('program_roster')
+    .select('id')
+    .eq('program_id', programId)
+    .eq('player_id', playerId)
+    .eq('status', 'enrolled')
+    .single()
+
+  if (!existing) {
+    await supabase
+      .from('program_roster')
+      .insert({
+        program_id: programId,
+        player_id: playerId,
+        status: 'enrolled',
+      })
+  }
+
+  // Create booking record
+  const { error } = await supabase
+    .from('bookings')
+    .insert({
+      family_id: familyId,
+      player_id: playerId,
+      program_id: programId,
+      booking_type: bookingType,
+      status: 'confirmed',
+      booked_by: user?.id,
+      notes: notes || null,
+    })
+
+  if (error) {
+    redirect(`/admin/programs/${programId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/admin/programs/${programId}`)
+  revalidatePath('/admin/sessions')
+  redirect(`/admin/programs/${programId}`)
 }

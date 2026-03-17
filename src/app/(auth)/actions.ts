@@ -45,18 +45,23 @@ export async function signup(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const fullName = formData.get('full_name') as string
+  const inviteToken = formData.get('invite_token') as string | null
 
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { full_name: fullName },
+      data: {
+        full_name: fullName,
+        ...(inviteToken ? { invite_token: inviteToken } : {}),
+      },
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
     },
   })
 
   if (error) {
-    redirect(`/signup?error=${encodeURIComponent(error.message)}`)
+    const inviteParam = inviteToken ? `&invite=${encodeURIComponent(inviteToken)}` : ''
+    redirect(`/signup?error=${encodeURIComponent(error.message)}${inviteParam}`)
   }
 
   redirect('/verify?type=signup')

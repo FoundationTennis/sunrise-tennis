@@ -5,6 +5,8 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/dates'
 import { FamilyEditForm } from './family-edit-form'
 import { AddPlayerForm } from './add-player-form'
+import { InviteParentForm } from './invite-parent-form'
+import { Suspense } from 'react'
 
 export default async function FamilyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -115,6 +117,14 @@ export default async function FamilyDetailPage({ params }: { params: Promise<{ i
             <AddPlayerForm familyId={id} />
           </div>
         </div>
+
+        {/* Invite parent */}
+        <Suspense>
+          <InviteParentForm
+            familyId={id}
+            siteUrl={process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}
+          />
+        </Suspense>
 
         {/* Edit family */}
         <FamilyEditForm family={family} />

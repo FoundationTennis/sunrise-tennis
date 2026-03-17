@@ -52,16 +52,15 @@ export async function updateSession(request: NextRequest) {
 
   // Role-based access: query user_roles to enforce route access
   if (user && (pathname.startsWith('/admin') || pathname.startsWith('/coach') || pathname.startsWith('/parent'))) {
-    const { data: userRole } = await supabase
+    const { data: userRoles } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .single()
 
-    const role = userRole?.role
+    const roles = userRoles?.map(r => r.role) ?? []
 
-    // No role assigned yet → show pending page
-    if (!role) {
+    // No roles assigned yet → show pending page
+    if (roles.length === 0) {
       if (pathname !== '/dashboard') {
         const url = request.nextUrl.clone()
         url.pathname = '/dashboard'
@@ -70,11 +69,14 @@ export async function updateSession(request: NextRequest) {
       return supabaseResponse
     }
 
-    // Enforce: admins can access everything, others only their own portal
+    const isAdmin = roles.includes('admin')
     const routeRole = pathname.split('/')[1] // 'admin', 'coach', or 'parent'
-    if (role !== 'admin' && role !== routeRole) {
+
+    // Admins can access all portals (admin, coach, parent)
+    // Others can only access their own portal
+    if (!isAdmin && !roles.includes(routeRole)) {
       const url = request.nextUrl.clone()
-      url.pathname = `/${role}`
+      url.pathname = `/${roles[0]}`
       return NextResponse.redirect(url)
     }
   }

@@ -8,6 +8,7 @@ import { signup } from '../actions'
 function SignupForm() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
+  const invite = searchParams.get('invite')
 
   return (
     <>
@@ -17,7 +18,15 @@ function SignupForm() {
         </div>
       )}
 
+      {invite && (
+        <div className="mb-4 rounded-md bg-orange-50 p-3 text-sm text-orange-700">
+          You&apos;ve been invited to join Sunrise Tennis. Create your account below.
+        </div>
+      )}
+
       <form action={signup} className="space-y-4">
+        {invite && <input type="hidden" name="invite_token" value={invite} />}
+
         <div>
           <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
             Full name

@@ -1,6 +1,8 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SignoutButton } from '@/components/signout-button'
+import { RoleSwitcher } from '@/components/role-switcher'
 
 export default async function DashboardLayout({
   children,
@@ -14,13 +16,13 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
-  const { data: userRole } = await supabase
+  const { data: userRoles } = await supabase
     .from('user_roles')
     .select('role')
     .eq('user_id', user.id)
-    .single()
 
-  const role = userRole?.role
+  const roles = userRoles?.map(r => r.role) ?? []
+  const isAdmin = roles.includes('admin')
   const displayName = user.user_metadata?.full_name || user.email
 
   return (
@@ -28,10 +30,13 @@ export default async function DashboardLayout({
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <span className="text-lg font-bold text-gray-900">Sunrise Tennis</span>
-            {role && (
+            <Link href={isAdmin ? '/admin' : `/${roles[0] ?? 'dashboard'}`} className="text-lg font-bold text-gray-900">
+              Sunrise Tennis
+            </Link>
+            {isAdmin && <RoleSwitcher />}
+            {!isAdmin && roles[0] && (
               <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700 capitalize">
-                {role}
+                {roles[0]}
               </span>
             )}
           </div>
