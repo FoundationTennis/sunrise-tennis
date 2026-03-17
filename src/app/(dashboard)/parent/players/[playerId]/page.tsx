@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/page-header'
 import { StatusBadge } from '@/components/status-badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { ParentPlayerEditForm } from './player-edit-form'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -62,6 +63,16 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
       />
 
       <div className="mt-6 space-y-8">
+        {/* Edit Player Details */}
+        <ParentPlayerEditForm player={{
+          id: player.id,
+          first_name: player.first_name,
+          last_name: player.last_name,
+          dob: player.dob,
+          medical_notes: player.medical_notes,
+          media_consent: player.media_consent,
+        }} />
+
         {/* Player Profile */}
         <Card>
           <CardContent className="pt-6">

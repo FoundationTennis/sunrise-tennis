@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { CreditCard } from 'lucide-react'
+import { PaymentOptions } from './payment-options'
 
 export default async function ParentPaymentsPage() {
   const supabase = await createClient()
@@ -89,7 +90,29 @@ export default async function ParentPaymentsPage() {
       {invoices && invoices.filter(i => i.status !== 'paid' && i.status !== 'void').length > 0 && (
         <div className="mt-8">
           <h2 className="text-lg font-semibold text-foreground">Outstanding Invoices</h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card shadow-card">
+
+          {/* Mobile cards */}
+          <div className="mt-3 space-y-3 md:hidden">
+            {invoices
+              .filter(i => i.status !== 'paid' && i.status !== 'void')
+              .map((invoice) => (
+                <div key={invoice.id} className="rounded-lg border border-border bg-card p-4 shadow-card">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-foreground">{invoice.display_id}</p>
+                    <StatusBadge status={invoice.status} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {invoice.due_date ? `Due ${formatDate(invoice.due_date)}` : 'No due date'}
+                    </span>
+                    <span className="font-medium tabular-nums">{formatCurrency(invoice.amount_cents)}</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="mt-3 hidden overflow-hidden rounded-lg border border-border bg-card shadow-card md:block">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -122,44 +145,84 @@ export default async function ParentPaymentsPage() {
         </div>
       )}
 
+      {/* Make a Payment */}
+      {invoices && invoices.filter(i => i.status !== 'paid' && i.status !== 'void').length > 0 && (
+        <div className="mt-8">
+          <PaymentOptions
+            familyId={familyId}
+            outstandingInvoices={invoices
+              .filter(i => i.status !== 'paid' && i.status !== 'void')
+              .map(i => ({ id: i.id, display_id: i.display_id, amount_cents: i.amount_cents }))}
+          />
+        </div>
+      )}
+
       {/* Payment History */}
       <div className="mt-8">
         <h2 className="text-lg font-semibold text-foreground">Payment History</h2>
         {payments && payments.length > 0 ? (
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card shadow-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell>
+          <>
+            {/* Mobile cards */}
+            <div className="mt-3 space-y-3 md:hidden">
+              {payments.map((payment) => (
+                <div key={payment.id} className="rounded-lg border border-border bg-card p-4 shadow-card">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
                       {payment.created_at ? formatDate(payment.created_at) : '-'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {payment.description || payment.category || '-'}
-                    </TableCell>
-                    <TableCell className="capitalize text-muted-foreground">
+                    </p>
+                    <StatusBadge status={payment.status} />
+                  </div>
+                  <p className="mt-1 text-sm text-foreground">
+                    {payment.description || payment.category || '-'}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between text-sm">
+                    <span className="capitalize text-muted-foreground">
                       {payment.payment_method.replace('_', ' ')}
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums text-success">
+                    </span>
+                    <span className="font-medium tabular-nums text-success">
                       {formatCurrency(payment.amount_cents)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={payment.status} />
-                    </TableCell>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="mt-3 hidden overflow-hidden rounded-lg border border-border bg-card shadow-card md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Method</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {payments.map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell>
+                        {payment.created_at ? formatDate(payment.created_at) : '-'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {payment.description || payment.category || '-'}
+                      </TableCell>
+                      <TableCell className="capitalize text-muted-foreground">
+                        {payment.payment_method.replace('_', ' ')}
+                      </TableCell>
+                      <TableCell className="text-right font-medium tabular-nums text-success">
+                        {formatCurrency(payment.amount_cents)}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={payment.status} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         ) : (
           <div className="mt-3">
             <EmptyState

@@ -92,3 +92,44 @@ export async function updateMediaConsent(playerId: string, formData: FormData) {
   revalidatePath('/parent/settings')
   redirect('/parent/settings?success=Media+consent+updated')
 }
+
+export async function updatePlayerDetails(playerId: string, formData: FormData) {
+  const supabase = await createClient()
+  const familyId = await getParentFamilyId()
+  if (!familyId) redirect('/login')
+
+  // Verify parent owns this player
+  const { data: player } = await supabase
+    .from('players')
+    .select('id')
+    .eq('id', playerId)
+    .eq('family_id', familyId)
+    .single()
+
+  if (!player) redirect('/parent')
+
+  const firstName = formData.get('first_name') as string
+  const lastName = formData.get('last_name') as string
+  const dob = formData.get('dob') as string
+  const medicalNotes = formData.get('medical_notes') as string
+  const mediaConsent = formData.get('media_consent') === 'on'
+
+  const { error } = await supabase
+    .from('players')
+    .update({
+      first_name: firstName,
+      last_name: lastName,
+      dob: dob || null,
+      medical_notes: medicalNotes || null,
+      media_consent: mediaConsent,
+    })
+    .eq('id', playerId)
+
+  if (error) {
+    redirect(`/parent/players/${playerId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/parent/players/${playerId}`)
+  revalidatePath('/parent')
+  redirect(`/parent/players/${playerId}?success=Player+details+updated`)
+}

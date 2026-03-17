@@ -63,6 +63,18 @@ export function PlayerEditForm({ player, familyId }: { player: Player; familyId:
             <Label htmlFor="medical_notes">Medical notes</Label>
             <Textarea id="medical_notes" name="medical_notes" rows={2} defaultValue={player.medical_notes ?? ''} className="mt-1" />
           </div>
+          <div className="flex items-center gap-3">
+            <input
+              id="media_consent"
+              name="media_consent"
+              type="checkbox"
+              defaultChecked={player.media_consent ?? false}
+              className="size-4 rounded border-border text-primary focus:ring-primary"
+            />
+            <Label htmlFor="media_consent" className="cursor-pointer">
+              Media consent (photos and videos)
+            </Label>
+          </div>
         </div>
         <Button type="submit">Save changes</Button>
       </form>

@@ -142,6 +142,7 @@ export async function updatePlayer(playerId: string, familyId: string, formData:
   const currentFocus = formData.get('current_focus') as string
   const shortTermGoal = formData.get('short_term_goal') as string
   const longTermGoal = formData.get('long_term_goal') as string
+  const mediaConsent = formData.get('media_consent') === 'on'
 
   const { error } = await supabase
     .from('players')
@@ -155,6 +156,7 @@ export async function updatePlayer(playerId: string, familyId: string, formData:
       current_focus: currentFocus ? currentFocus.split(',').map((s) => s.trim()) : null,
       short_term_goal: shortTermGoal || null,
       long_term_goal: longTermGoal || null,
+      media_consent: mediaConsent,
     })
     .eq('id', playerId)
 
