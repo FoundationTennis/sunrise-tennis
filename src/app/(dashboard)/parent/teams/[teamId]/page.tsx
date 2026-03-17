@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect, notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { AvailabilityForm } from './availability-form'
 import { respondToAvailability } from '../actions'
 import { PageHeader } from '@/components/page-header'
@@ -21,7 +21,7 @@ export default async function ParentTeamDetailPage({
   const { error, success } = await searchParams
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
   const { data: userRole } = await supabase

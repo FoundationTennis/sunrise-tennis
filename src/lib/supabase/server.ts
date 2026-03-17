@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from './types'
+import type { User } from '@supabase/supabase-js'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -26,4 +27,15 @@ export async function createClient() {
       },
     }
   )
+}
+
+/**
+ * Get the current user from the session cookie — no network call.
+ * Middleware already verifies the JWT on every request, so reading
+ * from the cookie here is safe. RLS enforces data-level security.
+ */
+export async function getSessionUser(): Promise<User | null> {
+  const supabase = await createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.user ?? null
 }

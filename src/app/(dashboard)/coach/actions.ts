@@ -2,13 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 
 // ── Lesson Notes ────────────────────────────────────────────────────────
 
 export async function createLessonNote(sessionId: string, formData: FormData) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
 
   // Get coach_id directly from coaches table (works for admin+coach users)
   const { data: coachRecord } = await supabase

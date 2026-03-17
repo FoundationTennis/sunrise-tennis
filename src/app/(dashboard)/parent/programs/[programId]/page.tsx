@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatDate, formatTime } from '@/lib/utils/dates'
 import { EnrolForm } from './enrol-form'
@@ -21,7 +21,7 @@ export default async function ParentProgramDetailPage({
   const { error, success } = await searchParams
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
   const { data: userRole } = await supabase

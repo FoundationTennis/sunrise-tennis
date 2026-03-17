@@ -23,6 +23,9 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // getUser() is required here to refresh the session token.
+  // This is the ONLY place in the app that should call getUser().
+  // All other code uses getSessionUser() which reads from the cookie (no network call).
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -50,14 +53,32 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Role-based access: query user_roles to enforce route access
+  // Role-based access: use cached roles cookie to avoid DB query per request
   if (user && (pathname.startsWith('/admin') || pathname.startsWith('/coach') || pathname.startsWith('/parent'))) {
-    const { data: userRoles } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
+    let roles: string[] = []
 
-    const roles = userRoles?.map(r => r.role) ?? []
+    // Try cached roles first
+    const cachedRoles = request.cookies.get('x-user-roles')?.value
+    if (cachedRoles) {
+      roles = cachedRoles.split(',')
+    } else {
+      // First request or cache expired — query and cache
+      const { data: userRoles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+
+      roles = userRoles?.map(r => r.role) ?? []
+
+      // Cache for 5 minutes (roles rarely change)
+      supabaseResponse.cookies.set('x-user-roles', roles.join(','), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 300, // 5 minutes
+        path: '/',
+      })
+    }
 
     // No roles assigned yet → show pending page
     if (roles.length === 0) {

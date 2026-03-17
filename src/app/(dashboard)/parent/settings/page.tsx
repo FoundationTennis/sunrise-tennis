@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { ContactInfoForm } from './contact-info-form'
 import { MediaConsentForm } from './media-consent-form'
 import { PageHeader } from '@/components/page-header'
@@ -14,7 +14,7 @@ export default async function ParentSettingsPage({
   const { error, success } = await searchParams
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
   const { data: userRole } = await supabase

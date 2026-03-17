@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { sendNotificationToTarget } from '@/lib/push/send'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
@@ -182,7 +182,7 @@ export async function createInvitation(familyId: string, formData: FormData) {
   // Generate a URL-safe token
   const token = crypto.randomUUID()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
 
   const { error } = await supabase
     .from('invitations')
@@ -373,7 +373,7 @@ export async function cancelSession(sessionId: string, formData: FormData) {
 export async function adminBookPlayer(formData: FormData) {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
 
   const familyId = formData.get('family_id') as string
   const playerId = formData.get('player_id') as string

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 
 /**
  * Process a Square card payment.
@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function processSquarePayment(formData: FormData) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
 
   const sourceId = formData.get('source_id') as string
   const familyId = formData.get('family_id') as string

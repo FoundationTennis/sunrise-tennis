@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { sendNotificationToTarget, sendPushToUser } from '@/lib/push/send'
 
@@ -108,7 +108,7 @@ export async function removeTeamMember(teamId: string, formData: FormData) {
 
 export async function sendAvailabilityCheck(teamId: string, formData: FormData) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
   const matchDate = formData.get('match_date') as string
@@ -186,7 +186,7 @@ export async function sendAvailabilityCheck(teamId: string, formData: FormData) 
 
 export async function sendTeamMessage(teamId: string, formData: FormData) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
   const body = formData.get('body') as string

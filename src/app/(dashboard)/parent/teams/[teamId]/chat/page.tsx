@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { ChatThread } from './chat-thread'
 import { sendTeamMessage } from '../../actions'
 import { PageHeader } from '@/components/page-header'
@@ -12,7 +12,7 @@ export default async function ParentTeamChatPage({
   const { teamId } = await params
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
   const { data: team } = await supabase.from('teams').select('name').eq('id', teamId).single()

@@ -2,13 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 
 // ── Record Payment ──────────────────────────────────────────────────────
 
 export async function recordPayment(formData: FormData) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
 
   const familyId = formData.get('family_id') as string
   const amountDollars = formData.get('amount_dollars') as string

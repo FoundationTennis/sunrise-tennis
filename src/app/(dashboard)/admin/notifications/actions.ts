@@ -2,13 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { sendNotificationToTarget } from '@/lib/push/send'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 export async function sendNotification(formData: FormData) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
   const type = formData.get('type') as string

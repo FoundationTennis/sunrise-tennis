@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { formatDate, formatTime } from '@/lib/utils/dates'
 import { CoachAttendanceForm } from './coach-attendance-form'
 import { LessonNoteForm } from './lesson-note-form'
@@ -20,7 +20,7 @@ export default async function CoachSessionDetailPage({
   const { error } = await searchParams
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
   // Fetch session details
