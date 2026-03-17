@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Users, Calendar, GraduationCap } from 'lucide-react'
+import { EnrolledCalendar } from './enrolled-calendar'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -200,38 +201,33 @@ export default async function ParentDashboard() {
         )}
       </div>
 
-      {/* Enrolled Programs */}
+      {/* Enrolled Programs — Weekly Calendar */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground">Enrolled Programs</h2>
+        <h2 className="text-lg font-semibold text-foreground">Weekly Schedule</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Your enrolled sessions at a glance.</p>
 
         {enrollments && enrollments.length > 0 ? (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {enrollments.map((enrollment) => {
-              const program = enrollment.programs as unknown as {
-                id: string; name: string; type: string; level: string;
-                day_of_week: number | null; start_time: string | null; end_time: string | null; status: string
-              } | null
-              const player = enrollment.players as unknown as { id: string; first_name: string } | null
-              if (!program) return null
-              return (
-                <Card key={enrollment.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-foreground">{program.name}</p>
-                      <StatusBadge status={program.type} />
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {program.day_of_week != null && DAYS[program.day_of_week]}
-                      {program.start_time && ` · ${formatTime(program.start_time)}`}
-                      {program.end_time && ` - ${formatTime(program.end_time)}`}
-                    </p>
-                    {player && (
-                      <p className="mt-1 text-xs text-muted-foreground">Player: {player.first_name}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              )
-            })}
+          <div className="mt-3">
+            <EnrolledCalendar
+              enrollments={enrollments.map((enrollment) => {
+                const program = enrollment.programs as unknown as {
+                  id: string; name: string; type: string; level: string;
+                  day_of_week: number | null; start_time: string | null; end_time: string | null; status: string
+                } | null
+                const player = enrollment.players as unknown as { id: string; first_name: string } | null
+                return {
+                  id: enrollment.id,
+                  playerName: player?.first_name ?? '',
+                  programId: program?.id ?? '',
+                  programName: program?.name ?? '',
+                  programType: program?.type ?? '',
+                  programLevel: program?.level ?? null,
+                  dayOfWeek: program?.day_of_week ?? null,
+                  startTime: program?.start_time ?? null,
+                  endTime: program?.end_time ?? null,
+                }
+              })}
+            />
           </div>
         ) : (
           <div className="mt-3">

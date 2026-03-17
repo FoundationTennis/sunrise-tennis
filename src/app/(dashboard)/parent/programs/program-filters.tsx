@@ -1,13 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatTime } from '@/lib/utils/dates'
 import { Badge } from '@/components/ui/badge'
+import { WeeklyCalendar, type CalendarEvent } from '@/components/weekly-calendar'
+import { Calendar, List, Layers, Tag, Star } from 'lucide-react'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const LEVELS = ['red', 'orange', 'green', 'yellow', 'competitive']
+
+const LEVEL_COLORS: Record<string, string> = {
+  red: 'bg-ball-red/20 border-ball-red/30',
+  orange: 'bg-ball-orange/20 border-ball-orange/30',
+  green: 'bg-ball-green/20 border-ball-green/30',
+  yellow: 'bg-ball-yellow/20 border-ball-yellow/30',
+  competitive: 'bg-primary/15 border-primary/30',
+}
 
 type Program = {
   id: string
@@ -23,6 +32,8 @@ type Program = {
   description: string | null
   program_roster: { id: string; player_id: string; status: string }[]
 }
+
+type Tab = 'recommended' | 'calendar' | 'list' | 'level' | 'type'
 
 function ProgramCard({
   program,
@@ -51,25 +62,14 @@ function ProgramCard({
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Badge variant="secondary" className="capitalize">
-            {program.type}
-          </Badge>
+          <Badge variant="secondary" className="capitalize">{program.type}</Badge>
           <span className="text-xs capitalize text-muted-foreground/60">{program.level}</span>
         </div>
       </div>
-
-      {program.description && (
-        <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{program.description}</p>
-      )}
-
       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex gap-3">
-          {program.per_session_cents && (
-            <span>{formatCurrency(program.per_session_cents)}/session</span>
-          )}
-          {program.term_fee_cents && (
-            <span>{formatCurrency(program.term_fee_cents)}/term</span>
-          )}
+          {program.per_session_cents && <span>{formatCurrency(program.per_session_cents)}/session</span>}
+          {program.term_fee_cents && <span>{formatCurrency(program.term_fee_cents)}/term</span>}
         </div>
         <div className="flex items-center gap-2">
           {spotsLeft !== null && (
@@ -78,9 +78,7 @@ function ProgramCard({
             </span>
           )}
           {familyEnrolled.length > 0 && (
-            <Badge variant="outline" className="bg-success-light text-success border-success/20">
-              Enrolled
-            </Badge>
+            <Badge variant="outline" className="bg-success-light text-success border-success/20">Enrolled</Badge>
           )}
         </div>
       </div>
@@ -97,64 +95,121 @@ export function ParentProgramFilters({
   playerLevels: string[]
   familyPlayerIds: string[]
 }) {
-  const [filter, setFilter] = useState<string>('recommended')
-  const playerIds = new Set(familyPlayerIds)
-  const playerLevelSet = new Set(playerLevels)
+  const [tab, setTab] = useState<Tab>('recommended')
+  const [levelFilter, setLevelFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const playerIds = useMemo(() => new Set(familyPlayerIds), [familyPlayerIds])
+  const playerLevelSet = useMemo(() => new Set(playerLevels), [playerLevels])
 
-  const filters = [
-    { key: 'recommended', label: 'Recommended' },
-    { key: 'all', label: 'All' },
-    ...DAYS.filter((_, i) => programs.some((p) => p.day_of_week === i)).map((day, i) => ({
-      key: `day-${DAYS.indexOf(day)}`,
-      label: day.slice(0, 3),
-    })),
-    ...LEVELS.filter((l) => programs.some((p) => p.level === l)).map((level) => ({
-      key: `level-${level}`,
-      label: level.charAt(0).toUpperCase() + level.slice(1),
-    })),
+  const levels = useMemo(() => [...new Set(programs.map(p => p.level).filter(Boolean) as string[])].sort(), [programs])
+  const types = useMemo(() => [...new Set(programs.map(p => p.type).filter(Boolean))].sort(), [programs])
+
+  const recommended = useMemo(() => {
+    const rec = programs.filter(p => playerLevelSet.has(p.level ?? ''))
+    return rec.length > 0 ? rec : programs
+  }, [programs, playerLevelSet])
+
+  const filteredByLevel = levelFilter ? programs.filter(p => p.level === levelFilter) : programs
+  const filteredByType = typeFilter ? programs.filter(p => p.type === typeFilter) : programs
+
+  const calendarEvents: CalendarEvent[] = useMemo(() => {
+    return programs
+      .filter(p => p.day_of_week != null && p.start_time && p.end_time)
+      .map(p => ({
+        id: p.id,
+        title: p.name,
+        subtitle: `${p.type} - ${p.level ?? 'all'}`,
+        dayOfWeek: p.day_of_week!,
+        startTime: p.start_time!,
+        endTime: p.end_time!,
+        color: LEVEL_COLORS[p.level ?? ''] ?? 'bg-primary/15 border-primary/30',
+        href: `/parent/programs/${p.id}`,
+      }))
+  }, [programs])
+
+  const tabDefs: { key: Tab; label: string; icon: typeof Calendar }[] = [
+    { key: 'recommended', label: 'Recommended', icon: Star },
+    { key: 'calendar', label: 'Calendar', icon: Calendar },
+    { key: 'list', label: 'All', icon: List },
+    { key: 'level', label: 'Level', icon: Layers },
+    { key: 'type', label: 'Type', icon: Tag },
   ]
 
-  let filtered = programs
-  if (filter === 'recommended') {
-    filtered = programs.filter((p) => playerLevelSet.has(p.level ?? ''))
-    // If no recommendations, fall back to all
-    if (filtered.length === 0) filtered = programs
-  } else if (filter.startsWith('day-')) {
-    const dayIdx = parseInt(filter.replace('day-', ''), 10)
-    filtered = programs.filter((p) => p.day_of_week === dayIdx)
-  } else if (filter.startsWith('level-')) {
-    const level = filter.replace('level-', '')
-    filtered = programs.filter((p) => p.level === level)
+  function ProgramGrid({ items }: { items: Program[] }) {
+    if (items.length === 0) return <p className="mt-4 text-center text-sm text-muted-foreground">No programs match.</p>
+    return (
+      <div className="grid gap-3 sm:grid-cols-2">
+        {items.map((p) => <ProgramCard key={p.id} program={p} familyPlayerIds={playerIds} />)}
+      </div>
+    )
   }
 
   return (
     <div>
-      {/* Filter tabs */}
       <div className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1">
-        {filters.map(({ key, label }) => (
+        {tabDefs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setFilter(key)}
-            className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              filter === key
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+            onClick={() => setTab(key)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              tab === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
+            <Icon className="size-3.5" />
             {label}
           </button>
         ))}
       </div>
 
-      {/* Program cards */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {filtered.map((program) => (
-          <ProgramCard key={program.id} program={program} familyPlayerIds={playerIds} />
-        ))}
-      </div>
+      {tab === 'recommended' && (
+        <div className="mt-4">
+          <p className="mb-3 text-sm text-muted-foreground">Matching your players&apos; current ball level.</p>
+          <ProgramGrid items={recommended} />
+        </div>
+      )}
 
-      {filtered.length === 0 && (
-        <p className="mt-4 text-center text-sm text-muted-foreground">No programs match this filter.</p>
+      {tab === 'calendar' && (
+        <div className="mt-4">
+          {calendarEvents.length > 0 ? (
+            <WeeklyCalendar events={calendarEvents} />
+          ) : (
+            <p className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">No scheduled programs.</p>
+          )}
+        </div>
+      )}
+
+      {tab === 'list' && (
+        <div className="mt-4">
+          <ProgramGrid items={programs} />
+        </div>
+      )}
+
+      {tab === 'level' && (
+        <div className="mt-4">
+          <select
+            value={levelFilter}
+            onChange={(e) => setLevelFilter(e.target.value)}
+            className="mb-4 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="">All levels</option>
+            {levels.map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
+          </select>
+          <ProgramGrid items={filteredByLevel} />
+        </div>
+      )}
+
+      {tab === 'type' && (
+        <div className="mt-4">
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="mb-4 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="">All types</option>
+            {types.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+          </select>
+          <ProgramGrid items={filteredByType} />
+        </div>
       )}
     </div>
   )
