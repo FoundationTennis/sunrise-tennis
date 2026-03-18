@@ -12,8 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CreditCard, FileText, ChevronRight } from 'lucide-react'
+import { CreditCard, FileText, ChevronRight, Ticket } from 'lucide-react'
 import { PaymentOptions } from './payment-options'
+import { ChargesList } from './charges-list'
+import { VoucherForm } from './voucher-form'
 
 export default async function ParentPaymentsPage() {
   const supabase = await createClient()
@@ -41,28 +43,40 @@ export default async function ParentPaymentsPage() {
     )
   }
 
-  const [
-    { data: balance },
-    { data: payments },
-    { data: invoices },
-  ] = await Promise.all([
+  const [balanceRes, paymentsRes, invoicesRes, chargesRes, vouchersRes] = await Promise.all([
     supabase.from('family_balance').select('balance_cents').eq('family_id', familyId).single(),
-    supabase
-      .from('payments')
-      .select('*')
-      .eq('family_id', familyId)
-      .order('created_at', { ascending: false })
-      .limit(20),
-    supabase
-      .from('invoices')
-      .select('*')
-      .eq('family_id', familyId)
-      .order('created_at', { ascending: false })
-      .limit(20),
+    supabase.from('payments').select('*').eq('family_id', familyId).order('created_at', { ascending: false }).limit(20),
+    supabase.from('invoices').select('*').eq('family_id', familyId).order('created_at', { ascending: false }).limit(20),
+    supabase.from('charges').select('id, type, source_type, description, amount_cents, status, program_id, session_id, created_at').eq('family_id', familyId).in('status', ['pending', 'confirmed']).order('created_at', { ascending: false }).limit(100),
+    supabase.from('vouchers').select('id, voucher_code, voucher_type, amount_cents, status, submitted_at').eq('family_id', familyId).order('submitted_at', { ascending: false }).limit(10),
   ])
+
+  const balance = balanceRes.data
+  const payments = paymentsRes.data
+  const invoices = invoicesRes.data
+  const charges = chargesRes.data
+  const vouchers = vouchersRes.data
+
+  // Enrich charges with program names
+  const programIds = [...new Set((charges ?? []).filter(c => c.program_id).map(c => c.program_id!))]
+  let programNames: Record<string, string> = {}
+  if (programIds.length > 0) {
+    const { data: programs } = await supabase
+      .from('programs')
+      .select('id, name')
+      .in('id', programIds)
+    if (programs) {
+      programNames = Object.fromEntries(programs.map(p => [p.id, p.name]))
+    }
+  }
+  const enrichedCharges = (charges ?? []).map(c => ({
+    ...c,
+    program_name: c.program_id ? programNames[c.program_id] ?? null : null,
+  }))
 
   const balanceCents = balance?.balance_cents ?? 0
   const outstandingInvoices = invoices?.filter(i => i.status !== 'paid' && i.status !== 'void') ?? []
+  const hasOutstandingBalance = balanceCents < 0
 
   return (
     <div className="space-y-6">
@@ -86,6 +100,13 @@ export default async function ParentPaymentsPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Itemised Charges ── */}
+      {enrichedCharges.length > 0 && (
+        <section className="animate-fade-up" style={{ animationDelay: '80ms' }}>
+          <ChargesList charges={enrichedCharges} />
+        </section>
+      )}
 
       {/* ── Outstanding Invoices ── */}
       {outstandingInvoices.length > 0 && (
@@ -146,10 +167,11 @@ export default async function ParentPaymentsPage() {
       )}
 
       {/* ── Make a Payment ── */}
-      {outstandingInvoices.length > 0 && (
+      {hasOutstandingBalance && (
         <section className="animate-fade-up" style={{ animationDelay: '160ms' }}>
           <PaymentOptions
             familyId={familyId}
+            balanceCents={balanceCents}
             outstandingInvoices={outstandingInvoices.map(i => ({
               id: i.id,
               display_id: i.display_id,
@@ -159,8 +181,33 @@ export default async function ParentPaymentsPage() {
         </section>
       )}
 
+      {/* ── Sports Voucher ── */}
+      <section className="animate-fade-up" style={{ animationDelay: '220ms' }}>
+        <VoucherForm />
+        {vouchers && vouchers.length > 0 && (
+          <div className="mt-3 space-y-2">
+            <h3 className="text-sm font-semibold text-foreground">Submitted Vouchers</h3>
+            {vouchers.map((v) => (
+              <div key={v.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-2.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <Ticket className="size-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium text-foreground">{v.voucher_code}</p>
+                    <p className="text-xs capitalize text-muted-foreground">{v.voucher_type.replace('_', ' ')}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="tabular-nums text-foreground">{formatCurrency(v.amount_cents)}</span>
+                  <StatusBadge status={v.status} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* ── Payment History ── */}
-      <section className="animate-fade-up" style={{ animationDelay: '240ms' }}>
+      <section className="animate-fade-up" style={{ animationDelay: '300ms' }}>
         <h2 className="text-lg font-semibold text-foreground">Payment History</h2>
         {payments && payments.length > 0 ? (
           <>

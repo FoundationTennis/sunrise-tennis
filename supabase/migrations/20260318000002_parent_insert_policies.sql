@@ -4,7 +4,7 @@
 CREATE POLICY "parent_program_roster_insert" ON program_roster
   FOR INSERT TO authenticated
   WITH CHECK (
-    get_user_role() = 'parent'
+    get_user_role(auth.uid()) = 'parent'
     AND player_id IN (
       SELECT id FROM players WHERE family_id = get_user_family_id(auth.uid())
     )
@@ -14,7 +14,7 @@ CREATE POLICY "parent_program_roster_insert" ON program_roster
 CREATE POLICY "parent_payments_insert" ON payments
   FOR INSERT TO authenticated
   WITH CHECK (
-    get_user_role() = 'parent'
+    get_user_role(auth.uid()) = 'parent'
     AND family_id = get_user_family_id(auth.uid())
   );
 
@@ -22,7 +22,7 @@ CREATE POLICY "parent_payments_insert" ON payments
 CREATE POLICY "parent_family_balance_update" ON family_balance
   FOR UPDATE TO authenticated
   USING (
-    get_user_role() = 'parent'
+    get_user_role(auth.uid()) = 'parent'
     AND family_id = get_user_family_id(auth.uid())
   );
 
@@ -30,6 +30,6 @@ CREATE POLICY "parent_family_balance_update" ON family_balance
 CREATE POLICY "parent_family_balance_insert" ON family_balance
   FOR INSERT TO authenticated
   WITH CHECK (
-    get_user_role() = 'parent'
+    get_user_role(auth.uid()) = 'parent'
     AND family_id = get_user_family_id(auth.uid())
   );

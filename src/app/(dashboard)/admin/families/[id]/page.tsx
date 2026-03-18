@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/utils/dates'
 import { FamilyEditForm } from './family-edit-form'
 import { AddPlayerForm } from './add-player-form'
 import { InviteParentForm } from './invite-parent-form'
+import { PricingForm } from './pricing-form'
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/page-header'
 import { StatusBadge } from '@/components/status-badge'
@@ -15,10 +16,12 @@ export default async function FamilyDetailPage({ params }: { params: Promise<{ i
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: family }, { data: players }, { data: balance }] = await Promise.all([
+  const [{ data: family }, { data: players }, { data: balance }, { data: pricingOverrides }, { data: allPrograms }] = await Promise.all([
     supabase.from('families').select('*').eq('id', id).single(),
     supabase.from('players').select('*').eq('family_id', id).order('first_name'),
     supabase.from('family_balance').select('balance_cents').eq('family_id', id).single(),
+    supabase.from('family_pricing').select('*').eq('family_id', id).order('created_at', { ascending: false }),
+    supabase.from('programs').select('id, name, type').eq('status', 'active').order('name'),
   ])
 
   if (!family) notFound()
@@ -34,9 +37,17 @@ export default async function FamilyDetailPage({ params }: { params: Promise<{ i
       />
 
       {balance && (
-        <p className={`mt-2 text-sm font-medium ${balance.balance_cents < 0 ? 'text-danger' : balance.balance_cents > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-          Balance: {formatCurrency(balance.balance_cents)}
-        </p>
+        <div className="mt-2 flex items-center gap-3">
+          <p className={`text-sm font-medium ${balance.balance_cents < 0 ? 'text-danger' : balance.balance_cents > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+            Balance: {formatCurrency(balance.balance_cents)}
+          </p>
+          <Link
+            href={`/admin/families/${id}/statement`}
+            className="text-xs text-primary hover:underline"
+          >
+            View statement
+          </Link>
+        </div>
       )}
 
       <div className="mt-6 space-y-8">
@@ -119,6 +130,13 @@ export default async function FamilyDetailPage({ params }: { params: Promise<{ i
             siteUrl={process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}
           />
         </Suspense>
+
+        {/* Custom pricing */}
+        <PricingForm
+          familyId={id}
+          overrides={pricingOverrides ?? []}
+          programs={(allPrograms ?? []).map(p => ({ id: p.id, name: p.name, type: p.type }))}
+        />
 
         {/* Edit family */}
         <FamilyEditForm family={family} />

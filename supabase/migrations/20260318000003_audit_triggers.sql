@@ -9,7 +9,23 @@ BEGIN
     auth.uid(),
     TG_OP,
     TG_TABLE_NAME,
-    COALESCE(NEW.id, OLD.id),
+    -- Handle tables without an id column (e.g. family_balance uses family_id)
+    COALESCE(
+      (NEW).id, (OLD).id,
+      (NEW).family_id, (OLD).family_id
+    )::text,
+    CASE WHEN TG_OP IN ('UPDATE', 'DELETE') THEN to_jsonb(OLD) ELSE NULL END,
+    CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN to_jsonb(NEW) ELSE NULL END
+  );
+  RETURN COALESCE(NEW, OLD);
+EXCEPTION WHEN undefined_column THEN
+  -- Fallback for tables with neither id nor family_id
+  INSERT INTO audit_log (user_id, action, entity_type, entity_id, old_values, new_values)
+  VALUES (
+    auth.uid(),
+    TG_OP,
+    TG_TABLE_NAME,
+    NULL,
     CASE WHEN TG_OP IN ('UPDATE', 'DELETE') THEN to_jsonb(OLD) ELSE NULL END,
     CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN to_jsonb(NEW) ELSE NULL END
   );

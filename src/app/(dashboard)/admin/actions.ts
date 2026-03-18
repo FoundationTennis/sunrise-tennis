@@ -17,6 +17,13 @@ import {
   createInvitationFormSchema,
   attendanceStatusSchema,
 } from '@/lib/utils/validation'
+import {
+  createCharge,
+  voidCharge,
+  getSessionPrice,
+  getExistingSessionCharge,
+  recalculateBalance,
+} from '@/lib/utils/billing'
 
 // ── Families ────────────────────────────────────────────────────────────
 
@@ -67,6 +74,24 @@ export async function createFamily(formData: FormData) {
 
   if (error) {
     redirect(`/admin/families/new?error=${encodeURIComponent(error.message)}`)
+  }
+
+  // Check if referred_by matches an existing family's display_id → create referral
+  if (referredBy) {
+    const { data: referringFamily } = await supabase
+      .from('families')
+      .select('id')
+      .eq('display_id', referredBy.toUpperCase().trim())
+      .single()
+
+    if (referringFamily) {
+      await supabase.from('referrals').insert({
+        referring_family_id: referringFamily.id,
+        referred_family_id: data.id,
+        status: 'pending',
+        credit_amount_cents: 5000, // $50
+      })
+    }
   }
 
   revalidatePath('/admin/families')
@@ -328,22 +353,28 @@ export async function createSession(formData: FormData) {
 }
 
 export async function updateAttendance(sessionId: string, formData: FormData) {
-  await requireAdmin()
+  const user = await requireAdmin()
   const supabase = await createClient()
 
-  // Parse attendance entries from form: attendance_PLAYERID = present|absent|late
+  // Parse attendance entries from form: attendance_PLAYERID = present|absent|late|excused
   const entries: { playerId: string; status: string }[] = []
   formData.forEach((value, key) => {
     if (key.startsWith('attendance_')) {
       const playerId = key.replace('attendance_', '')
       const status = value as string
-      // Validate each attendance status
       const statusResult = attendanceStatusSchema.safeParse(status)
       if (statusResult.success) {
         entries.push({ playerId, status: statusResult.data })
       }
     }
   })
+
+  // Get session details for billing context
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('id, program_id, session_type')
+    .eq('id', sessionId)
+    .single()
 
   // Upsert attendance records
   for (const entry of entries) {
@@ -355,14 +386,209 @@ export async function updateAttendance(sessionId: string, formData: FormData) {
       )
   }
 
+  // ── Billing side effects ─────────────────────────────────────────────
+  if (session?.program_id) {
+    const programId = session.program_id
+    const isPrivate = session.session_type === 'private'
+
+    // Get program details
+    const { data: program } = await supabase
+      .from('programs')
+      .select('type, name, per_session_cents')
+      .eq('id', programId)
+      .single()
+
+    for (const entry of entries) {
+      // Find the player's booking for this program
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('id, family_id, payment_option, sessions_charged')
+        .eq('player_id', entry.playerId)
+        .eq('program_id', programId)
+        .eq('status', 'confirmed')
+        .order('booked_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (!booking) continue
+
+      const familyId = booking.family_id
+      const paymentOption = booking.payment_option
+      const existingCharge = await getExistingSessionCharge(supabase, sessionId, entry.playerId)
+      const sessionPrice = await getSessionPrice(supabase, familyId, programId, program?.type)
+
+      if (paymentOption === 'pay_later') {
+        // ── Pay Later: charge per session as attended ──
+        if (entry.status === 'present' || entry.status === 'late') {
+          if (!existingCharge) {
+            await createCharge(supabase, {
+              familyId,
+              playerId: entry.playerId,
+              type: 'session',
+              sourceType: 'attendance',
+              sourceId: sessionId,
+              sessionId,
+              programId,
+              bookingId: booking.id,
+              description: `${program?.name ?? 'Session'} - ${new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short' })}`,
+              amountCents: sessionPrice,
+              status: 'confirmed',
+              createdBy: user.id,
+            })
+            // Increment sessions_charged
+            await supabase.from('bookings').update({
+              sessions_charged: (booking.sessions_charged ?? 0) + 1,
+            }).eq('id', booking.id)
+          }
+        } else if (entry.status === 'absent') {
+          // Unexcused absence — first 2 per term get no charge, after that fully charged
+          if (!existingCharge) {
+            // Count existing unexcused absence charges for this player/program
+            const { count: unexcusedCount } = await supabase
+              .from('attendances')
+              .select('*', { count: 'exact', head: true })
+              .eq('player_id', entry.playerId)
+              .eq('status', 'absent')
+              .in('session_id', (await supabase.from('sessions').select('id').eq('program_id', programId)).data?.map(s => s.id) ?? [])
+
+            if ((unexcusedCount ?? 0) > 2) {
+              // 3rd+ unexcused: fully charged
+              await createCharge(supabase, {
+                familyId,
+                playerId: entry.playerId,
+                type: 'session',
+                sourceType: 'attendance',
+                sourceId: sessionId,
+                sessionId,
+                programId,
+                bookingId: booking.id,
+                description: `${program?.name ?? 'Session'} - Absent (unexcused)`,
+                amountCents: sessionPrice,
+                status: 'confirmed',
+                createdBy: user.id,
+              })
+            }
+            // First 2 unexcused: no charge (credit)
+          }
+        } else if (entry.status === 'excused') {
+          // Excused: no charge. Void existing charge if one was already created.
+          if (existingCharge) {
+            await voidCharge(supabase, existingCharge.id, familyId)
+          }
+        }
+      } else if (paymentOption === 'pay_now') {
+        // ── Pay Now: already paid for term, only create credits ──
+        if (entry.status === 'excused') {
+          // Create a credit for the missed session
+          if (!existingCharge) {
+            await createCharge(supabase, {
+              familyId,
+              playerId: entry.playerId,
+              type: 'credit',
+              sourceType: 'attendance',
+              sourceId: sessionId,
+              sessionId,
+              programId,
+              bookingId: booking.id,
+              description: `${program?.name ?? 'Session'} - Excused absence credit`,
+              amountCents: -sessionPrice,
+              status: 'confirmed',
+              createdBy: user.id,
+            })
+          }
+        } else if (session.session_type === 'makeup' && (entry.status === 'present' || entry.status === 'late')) {
+          // Makeup session: charge at session rate (they used their credit)
+          if (!existingCharge) {
+            await createCharge(supabase, {
+              familyId,
+              playerId: entry.playerId,
+              type: 'session',
+              sourceType: 'attendance',
+              sourceId: sessionId,
+              sessionId,
+              programId,
+              bookingId: booking.id,
+              description: `${program?.name ?? 'Session'} - Makeup session`,
+              amountCents: sessionPrice,
+              status: 'confirmed',
+              createdBy: user.id,
+            })
+          }
+        }
+      } else if (isPrivate) {
+        // ── Private lessons (may not have payment_option set) ──
+        if (entry.status === 'present' || entry.status === 'late') {
+          if (!existingCharge) {
+            await createCharge(supabase, {
+              familyId,
+              playerId: entry.playerId,
+              type: 'private',
+              sourceType: 'attendance',
+              sourceId: sessionId,
+              sessionId,
+              programId,
+              bookingId: booking.id,
+              description: `Private lesson - ${new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short' })}`,
+              amountCents: sessionPrice,
+              status: 'confirmed',
+              createdBy: user.id,
+            })
+          }
+        } else if (entry.status === 'excused') {
+          // Full credit for excused (24hrs+ notice or admin-approved)
+          if (existingCharge) {
+            await voidCharge(supabase, existingCharge.id, familyId)
+          }
+        } else if (entry.status === 'absent') {
+          // Unexcused private absence: 1st = 50% charge, 2nd+ = full charge
+          if (!existingCharge) {
+            const { count: priorUnexcused } = await supabase
+              .from('attendances')
+              .select('*', { count: 'exact', head: true })
+              .eq('player_id', entry.playerId)
+              .eq('status', 'absent')
+              .neq('session_id', sessionId)
+              .in('session_id', (await supabase.from('sessions').select('id').eq('program_id', programId).eq('session_type', 'private')).data?.map(s => s.id) ?? [])
+
+            const chargeAmount = (priorUnexcused ?? 0) === 0
+              ? Math.round(sessionPrice * 0.5) // 1st unexcused: 50%
+              : sessionPrice // 2nd+: full
+
+            await createCharge(supabase, {
+              familyId,
+              playerId: entry.playerId,
+              type: 'private',
+              sourceType: 'attendance',
+              sourceId: sessionId,
+              sessionId,
+              programId,
+              bookingId: booking.id,
+              description: `Private lesson - No-show (${(priorUnexcused ?? 0) === 0 ? '50%' : 'full'} charge)`,
+              amountCents: chargeAmount,
+              status: 'confirmed',
+              createdBy: user.id,
+            })
+          }
+        }
+      }
+    }
+  }
+
   revalidatePath(`/admin/sessions/${sessionId}`)
   redirect(`/admin/sessions/${sessionId}`)
 }
 
 export async function cancelSession(sessionId: string, formData: FormData) {
-  await requireAdmin()
+  const user = await requireAdmin()
   const supabase = await createClient()
   const reason = (formData.get('reason') as string)?.trim() || null
+
+  // Get session details
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('id, program_id')
+    .eq('id', sessionId)
+    .single()
 
   const { error } = await supabase
     .from('sessions')
@@ -374,6 +600,108 @@ export async function cancelSession(sessionId: string, formData: FormData) {
 
   if (error) {
     redirect(`/admin/sessions/${sessionId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  // ── Create credits for all enrolled families ─────────────────────────
+  if (session?.program_id) {
+    const programId = session.program_id
+
+    const { data: program } = await supabase
+      .from('programs')
+      .select('name, type')
+      .eq('id', programId)
+      .single()
+
+    // Get all enrolled players
+    const { data: roster } = await supabase
+      .from('program_roster')
+      .select('player_id')
+      .eq('program_id', programId)
+      .eq('status', 'enrolled')
+
+    if (roster) {
+      const affectedFamilies = new Set<string>()
+
+      for (const rosterEntry of roster) {
+        const playerId = rosterEntry.player_id
+
+        // Find their booking
+        const { data: booking } = await supabase
+          .from('bookings')
+          .select('id, family_id, payment_option')
+          .eq('player_id', playerId)
+          .eq('program_id', programId)
+          .eq('status', 'confirmed')
+          .order('booked_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (!booking) continue
+
+        const familyId = booking.family_id
+        affectedFamilies.add(familyId)
+
+        // Check for existing charges on this session
+        const existingCharge = await getExistingSessionCharge(supabase, sessionId, playerId)
+
+        if (booking.payment_option === 'pay_later' && existingCharge) {
+          // Void the existing charge
+          await voidCharge(supabase, existingCharge.id, familyId)
+        } else if (booking.payment_option === 'pay_now') {
+          // Create credit for pre-paid session
+          const sessionPrice = await getSessionPrice(supabase, familyId, programId, program?.type)
+          if (!existingCharge) {
+            await createCharge(supabase, {
+              familyId,
+              playerId,
+              type: 'credit',
+              sourceType: 'cancellation',
+              sourceId: sessionId,
+              sessionId,
+              programId,
+              bookingId: booking.id,
+              description: `${program?.name ?? 'Session'} - Cancelled${reason ? ` (${reason})` : ''}`,
+              amountCents: -sessionPrice,
+              status: 'confirmed',
+              createdBy: user.id,
+            })
+          }
+        }
+      }
+
+      // Recalculate balance for all affected families
+      for (const fid of affectedFamilies) {
+        await recalculateBalance(supabase, fid)
+      }
+
+      // Send notification to affected families
+      try {
+        const serviceClient = createServiceClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        )
+
+        await serviceClient.from('notifications').insert({
+          type: 'session_cancelled',
+          title: 'Session Cancelled',
+          body: `${program?.name ?? 'A session'} has been cancelled${reason ? `: ${reason}` : '.'}`,
+          url: '/parent',
+          target_type: 'program',
+          target_id: programId,
+          created_by: user.id,
+        })
+
+        await sendNotificationToTarget({
+          title: 'Session Cancelled',
+          body: `${program?.name ?? 'A session'} has been cancelled${reason ? `: ${reason}` : '.'}`,
+          url: '/parent',
+          targetType: 'program',
+          targetId: programId,
+        })
+      } catch (e) {
+        console.error('Cancel notification failed:', e instanceof Error ? e.message : 'Unknown error')
+      }
+    }
   }
 
   revalidatePath(`/admin/sessions/${sessionId}`)

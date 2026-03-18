@@ -38,7 +38,7 @@ export const ballColorSchema = z.enum(['blue', 'red', 'orange', 'green', 'yellow
 export const sessionTypeSchema = z.enum(['group', 'private', 'makeup'])
 export const sessionStatusSchema = z.enum(['scheduled', 'completed', 'cancelled', 'rained_out'])
 export const attendanceStatusSchema = z.enum(['present', 'absent', 'late', 'excused'])
-export const bookingTypeSchema = z.enum(['term_enrollment', 'casual', 'private', 'trial'])
+export const bookingTypeSchema = z.enum(['term_enrollment', 'term', 'casual', 'private', 'trial'])
 export const bookingStatusSchema = z.enum(['confirmed', 'pending', 'cancelled'])
 export const paymentMethodSchema = z.enum(['square', 'bank_transfer', 'cash', 'direct_debit'])
 export const paymentStatusSchema = z.enum(['received', 'pending', 'overdue', 'refunded'])
@@ -261,11 +261,44 @@ export const updatePlayerDetailsFormSchema = z.object({
 })
 
 // Parent - Programs
+export const paymentOptionSchema = z.enum(['pay_now', 'pay_later'])
+
 export const enrolFormSchema = z.object({
   player_id: uuidString('Invalid player'),
   booking_type: bookingTypeSchema,
+  payment_option: paymentOptionSchema.optional().or(z.literal('')),
   notes: optionalString(1000),
 })
+
+// Parent - Vouchers
+export const voucherTypeSchema = z.enum(['active_kids', 'get_active'])
+
+export const submitVoucherFormSchema = z.object({
+  voucher_code: requiredString('Voucher code is required', 100),
+  voucher_type: voucherTypeSchema,
+})
+
+// Admin - Family Pricing
+export const familyPricingFormSchema = z.object({
+  family_id: uuidString('Invalid family'),
+  program_id: optionalUuid(),
+  program_type: optionalString(),
+  per_session_dollars: optionalString(),
+  term_fee_dollars: optionalString(),
+  notes: optionalString(1000),
+  valid_from: optionalString(),
+  valid_until: optionalString(),
+})
+
+// Charge status/type enums
+export const chargeStatusSchema = z.enum(['pending', 'confirmed', 'voided', 'credited'])
+export const chargeTypeSchema = z.enum([
+  'session', 'term_enrollment', 'casual', 'private', 'trial', 'event',
+  'credit', 'adjustment', 'voucher', 'referral_credit', 'discount',
+])
+export const chargeSourceTypeSchema = z.enum([
+  'enrollment', 'attendance', 'voucher', 'referral', 'admin', 'cancellation',
+])
 
 // Team messages (shared between parent and admin)
 export const teamMessageFormSchema = z.object({

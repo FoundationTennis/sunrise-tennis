@@ -26,66 +26,152 @@ interface SquareCard {
 
 export function SquarePaymentForm({
   familyId,
-  amountDollars,
+  defaultAmountDollars,
+  maxAmountDollars,
   description,
   invoiceId,
+  editable = false,
 }: {
   familyId: string
-  amountDollars: string
+  defaultAmountDollars: string
+  maxAmountDollars?: string
   description?: string
   invoiceId?: string
+  editable?: boolean
 }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
+  const [amountDollars, setAmountDollars] = useState(defaultAmountDollars)
   const cardRef = useRef<SquareCard | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const sourceIdRef = useRef<HTMLInputElement>(null)
+  const mountedRef = useRef(true)
 
   const appId = process.env.NEXT_PUBLIC_SQUARE_APP_ID
+  const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID
 
   useEffect(() => {
+    mountedRef.current = true
+
     if (!appId) {
       setError('Square is not configured')
       setLoading(false)
       return
     }
 
-    // Load Square Web Payments SDK
-    const script = document.createElement('script')
     const env = process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT || 'sandbox'
-    script.src = env === 'production'
+    const sdkUrl = env === 'production'
       ? 'https://web.squarecdn.com/v1/square.js'
       : 'https://sandbox.web.squarecdn.com/v1/square.js'
-    script.async = true
-    script.onload = async () => {
+
+    async function initSquare() {
       try {
-        if (!window.Square) throw new Error('Square SDK failed to load')
-        const payments = await window.Square.payments(appId)
+        // Check if SDK is already loaded
+        if (window.Square) {
+          await attachCard()
+          return
+        }
+
+        // Check if script tag already exists (e.g. from a previous render)
+        const existingScript = document.querySelector(`script[src="${sdkUrl}"]`)
+        if (existingScript) {
+          // Wait for it to load
+          if (window.Square) {
+            await attachCard()
+          } else {
+            existingScript.addEventListener('load', async () => {
+              if (mountedRef.current) await attachCard()
+            })
+            existingScript.addEventListener('error', () => {
+              if (mountedRef.current) {
+                setError('Failed to load Square SDK')
+                setLoading(false)
+              }
+            })
+          }
+          return
+        }
+
+        // Load the SDK
+        const script = document.createElement('script')
+        script.src = sdkUrl
+        script.async = true
+        script.onload = async () => {
+          if (mountedRef.current) await attachCard()
+        }
+        script.onerror = () => {
+          if (mountedRef.current) {
+            console.error('Square SDK failed to load from:', sdkUrl)
+            setError('Failed to load Square SDK. Please check your connection and try again.')
+            setLoading(false)
+          }
+        }
+        document.body.appendChild(script)
+      } catch (e) {
+        console.error('Square init error:', e)
+        if (mountedRef.current) {
+          setError(e instanceof Error ? e.message : 'Failed to initialise payment form')
+          setLoading(false)
+        }
+      }
+    }
+
+    async function attachCard() {
+      try {
+        if (!window.Square) throw new Error('Square SDK not available')
+
+        const payments = locationId
+          ? await window.Square.payments(appId!, locationId)
+          : await window.Square.payments(appId!)
+
         const card = await payments.card()
         await card.attach('#square-card-container')
         cardRef.current = card
-        setLoading(false)
+        if (mountedRef.current) setLoading(false)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load payment form')
-        setLoading(false)
+        console.error('Square card attach error:', e)
+        if (mountedRef.current) {
+          setError(e instanceof Error ? e.message : 'Failed to load payment form')
+          setLoading(false)
+        }
       }
     }
-    script.onerror = () => {
-      setError('Failed to load Square SDK')
-      setLoading(false)
-    }
-    document.body.appendChild(script)
+
+    initSquare()
 
     return () => {
+      mountedRef.current = false
       cardRef.current?.destroy()
-      document.body.removeChild(script)
+      cardRef.current = null
     }
-  }, [appId])
+  }, [appId, locationId])
+
+  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value
+    // Allow digits and one decimal point
+    if (/^\d*\.?\d{0,2}$/.test(val)) {
+      setAmountDollars(val)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!cardRef.current || processing) return
+
+    // Validate amount
+    const cents = Math.round(parseFloat(amountDollars) * 100)
+    if (isNaN(cents) || cents < 100) {
+      setError('Minimum payment is $1.00')
+      return
+    }
+    if (maxAmountDollars) {
+      const maxCents = Math.round(parseFloat(maxAmountDollars) * 100)
+      if (cents > maxCents) {
+        setError(`Maximum payment is $${maxAmountDollars}`)
+        return
+      }
+    }
 
     setProcessing(true)
     setError(null)
@@ -122,9 +208,34 @@ export function SquarePaymentForm({
     <Card>
       <CardContent className="pt-6">
         <h3 className="text-lg font-semibold text-foreground">Pay by Card</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Amount: <strong className="text-foreground">${amountDollars}</strong>
-        </p>
+
+        {editable ? (
+          <div className="mt-3">
+            <label htmlFor="payment-amount" className="text-sm font-medium text-foreground">
+              Amount
+            </label>
+            <div className="relative mt-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+              <input
+                id="payment-amount"
+                type="text"
+                inputMode="decimal"
+                value={amountDollars}
+                onChange={handleAmountChange}
+                className="block w-full rounded-lg border border-border bg-background py-2.5 pl-7 pr-3 text-sm text-foreground tabular-nums shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            {maxAmountDollars && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Outstanding balance: ${maxAmountDollars}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Amount: <strong className="text-foreground">${amountDollars}</strong>
+          </p>
+        )}
 
         {error && (
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
@@ -150,10 +261,10 @@ export function SquarePaymentForm({
 
         <Button
           onClick={handleSubmit}
-          disabled={loading || processing}
+          disabled={loading || processing || !amountDollars || parseFloat(amountDollars) < 1}
           className="mt-4 w-full"
         >
-          {processing ? 'Processing...' : `Pay $${amountDollars}`}
+          {processing ? 'Processing...' : `Pay $${amountDollars || '0.00'}`}
         </Button>
       </CardContent>
     </Card>

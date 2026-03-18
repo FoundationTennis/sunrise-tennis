@@ -8,19 +8,19 @@ import { CreditCard, Building2, Copy, Check, ChevronRight } from 'lucide-react'
 
 export function PaymentOptions({
   familyId,
+  balanceCents,
   outstandingInvoices,
 }: {
   familyId: string
+  balanceCents: number
   outstandingInvoices: { id: string; display_id: string; amount_cents: number }[]
 }) {
   const [method, setMethod] = useState<'choose' | 'card' | 'bank'>('choose')
-  const [selectedInvoice, setSelectedInvoice] = useState<string>(
-    outstandingInvoices.length === 1 ? outstandingInvoices[0].id : ''
-  )
   const [copied, setCopied] = useState<string | null>(null)
 
-  const invoice = outstandingInvoices.find((i) => i.id === selectedInvoice)
-  const amountDollars = invoice ? (invoice.amount_cents / 100).toFixed(2) : ''
+  // Outstanding balance (positive value for display)
+  const owedCents = Math.abs(Math.min(balanceCents, 0))
+  const owedDollars = (owedCents / 100).toFixed(2)
 
   const bankBsb = process.env.NEXT_PUBLIC_BANK_BSB || ''
   const bankAccount = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || ''
@@ -36,24 +36,6 @@ export function PaymentOptions({
     return (
       <div>
         <h2 className="text-lg font-semibold text-foreground">Make a Payment</h2>
-
-        {outstandingInvoices.length > 1 && (
-          <div className="mt-3">
-            <label className="text-sm font-medium text-foreground">Select invoice</label>
-            <select
-              value={selectedInvoice}
-              onChange={(e) => setSelectedInvoice(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="">Choose an invoice...</option>
-              {outstandingInvoices.map((inv) => (
-                <option key={inv.id} value={inv.id}>
-                  {inv.display_id} - ${(inv.amount_cents / 100).toFixed(2)}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <button
@@ -104,23 +86,22 @@ export function PaymentOptions({
           </Button>
         </div>
         <div className="mt-4">
-          {selectedInvoice && invoice ? (
-            <SquarePaymentForm
-              familyId={familyId}
-              amountDollars={amountDollars}
-              description={`Payment for ${invoice.display_id}`}
-              invoiceId={invoice.id}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">Please select an invoice first.</p>
-          )}
+          <SquarePaymentForm
+            familyId={familyId}
+            defaultAmountDollars={owedDollars}
+            maxAmountDollars={owedDollars}
+            description="Account payment"
+            editable
+          />
         </div>
       </div>
     )
   }
 
   // Bank transfer
-  const referenceText = invoice ? invoice.display_id : 'Your family name'
+  const referenceText = outstandingInvoices.length === 1
+    ? outstandingInvoices[0].display_id
+    : 'Your family name'
 
   return (
     <div>
@@ -201,9 +182,9 @@ export function PaymentOptions({
             </div>
           </dl>
 
-          {invoice && (
+          {owedCents > 0 && (
             <p className="mt-4 text-sm font-medium text-foreground">
-              Amount to transfer: <span className="tabular-nums">${amountDollars}</span>
+              Outstanding balance: <span className="tabular-nums">${owedDollars}</span>
             </p>
           )}
 

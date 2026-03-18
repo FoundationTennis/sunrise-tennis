@@ -2,8 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient, getSessionUser, requireAdmin } from '@/lib/supabase/server'
+import { createClient, requireAdmin } from '@/lib/supabase/server'
 import { validateFormData, recordPaymentFormSchema, createInvoiceFormSchema } from '@/lib/utils/validation'
+import { recalculateBalance, createCharge } from '@/lib/utils/billing'
+import { sendNotificationToTarget } from '@/lib/push/send'
 
 // ── Record Payment ──────────────────────────────────────────────────────
 
@@ -41,30 +43,8 @@ export async function recordPayment(formData: FormData) {
     redirect('/admin/payments?error=' + encodeURIComponent(error.message))
   }
 
-  // Update family balance (credit - payment received reduces debt)
-  const { data: currentBalance } = await supabase
-    .from('family_balance')
-    .select('balance_cents')
-    .eq('family_id', familyId)
-    .single()
-
-  if (currentBalance) {
-    await supabase
-      .from('family_balance')
-      .update({
-        balance_cents: currentBalance.balance_cents + amountCents,
-        last_updated: new Date().toISOString(),
-      })
-      .eq('family_id', familyId)
-  } else {
-    await supabase
-      .from('family_balance')
-      .insert({
-        family_id: familyId,
-        balance_cents: amountCents,
-        last_updated: new Date().toISOString(),
-      })
-  }
+  // Recalculate family balance (single source of truth)
+  await recalculateBalance(supabase, familyId)
 
   revalidatePath('/admin/payments')
   revalidatePath('/admin')
@@ -104,24 +84,8 @@ export async function confirmPayment(paymentId: string) {
     redirect('/admin/payments?error=' + encodeURIComponent(error.message))
   }
 
-  // Update balance only if transitioning from pending to received
-  if (payment.status === 'pending') {
-    const { data: currentBalance } = await supabase
-      .from('family_balance')
-      .select('balance_cents')
-      .eq('family_id', payment.family_id)
-      .single()
-
-    if (currentBalance) {
-      await supabase
-        .from('family_balance')
-        .update({
-          balance_cents: currentBalance.balance_cents + payment.amount_cents,
-          last_updated: new Date().toISOString(),
-        })
-        .eq('family_id', payment.family_id)
-    }
-  }
+  // Recalculate balance (single source of truth)
+  await recalculateBalance(supabase, payment.family_id)
 
   revalidatePath('/admin/payments')
   revalidatePath('/admin')
@@ -131,7 +95,7 @@ export async function confirmPayment(paymentId: string) {
 // ── Create Invoice ──────────────────────────────────────────────────────
 
 export async function createInvoice(formData: FormData) {
-  await requireAdmin()
+  const user = await requireAdmin()
   const supabase = await createClient()
 
   const parsed = validateFormData(formData, createInvoiceFormSchema)
@@ -162,7 +126,7 @@ export async function createInvoice(formData: FormData) {
 
   const items = description ? [{ description, amount_cents: amountCents }] : []
 
-  const { data, error } = await supabase
+  const { data: invoice, error } = await supabase
     .from('invoices')
     .insert({
       display_id: displayId,
@@ -180,33 +144,137 @@ export async function createInvoice(formData: FormData) {
     redirect('/admin/payments/invoices?error=' + encodeURIComponent(error.message))
   }
 
-  // Debit family balance (invoice = money owed)
-  const { data: currentBalance } = await supabase
-    .from('family_balance')
-    .select('balance_cents')
-    .eq('family_id', familyId)
-    .single()
+  // Create a corresponding charge row linked to this invoice
+  await createCharge(supabase, {
+    familyId,
+    type: 'adjustment',
+    sourceType: 'admin',
+    description: description || `${displayId} charge`,
+    amountCents,
+    status: 'pending',
+    invoiceId: invoice.id,
+    createdBy: user.id,
+  })
 
-  if (currentBalance) {
-    await supabase
-      .from('family_balance')
-      .update({
-        balance_cents: currentBalance.balance_cents - amountCents,
-        last_updated: new Date().toISOString(),
-      })
-      .eq('family_id', familyId)
-  } else {
-    await supabase
-      .from('family_balance')
-      .insert({
-        family_id: familyId,
-        balance_cents: -amountCents,
-        last_updated: new Date().toISOString(),
-      })
-  }
+  // Balance is recalculated inside createCharge — no manual math needed
 
   revalidatePath('/admin/payments')
   revalidatePath('/admin/payments/invoices')
   revalidatePath('/admin')
   redirect('/admin/payments/invoices')
+}
+
+// ── Generate Invoice from Unbilled Charges ─────────────────────────────
+
+export async function generateInvoiceFromCharges(familyId: string, dueDate?: string) {
+  const user = await requireAdmin()
+  const supabase = await createClient()
+
+  // Get all unbilled pending/confirmed charges for this family
+  const { data: unbilledCharges, error: fetchError } = await supabase
+    .from('charges')
+    .select('id, description, amount_cents, status')
+    .eq('family_id', familyId)
+    .is('invoice_id', null)
+    .in('status', ['pending', 'confirmed'])
+    .gt('amount_cents', 0)
+    .order('created_at', { ascending: true })
+
+  if (fetchError || !unbilledCharges || unbilledCharges.length === 0) {
+    redirect(`/admin/families/${familyId}?error=${encodeURIComponent('No unbilled charges found')}`)
+  }
+
+  const totalCents = unbilledCharges.reduce((sum, c) => sum + c.amount_cents, 0)
+  const items = unbilledCharges.map(c => ({
+    description: c.description,
+    amount_cents: c.amount_cents,
+  }))
+
+  // Generate next invoice display_id
+  const currentYear = new Date().getFullYear()
+  const { data: lastInvoice } = await supabase
+    .from('invoices')
+    .select('display_id')
+    .like('display_id', `INV-${currentYear}-%`)
+    .order('display_id', { ascending: false })
+    .limit(1)
+    .single()
+
+  let nextNum = 1
+  if (lastInvoice?.display_id) {
+    const match = lastInvoice.display_id.match(/INV-\d{4}-(\d+)/)
+    if (match) nextNum = parseInt(match[1], 10) + 1
+  }
+  const displayId = `INV-${currentYear}-${String(nextNum).padStart(3, '0')}`
+
+  const { data: invoice, error: insertError } = await supabase
+    .from('invoices')
+    .insert({
+      display_id: displayId,
+      family_id: familyId,
+      amount_cents: totalCents,
+      status: 'sent',
+      due_date: dueDate || null,
+      items,
+      sent_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single()
+
+  if (insertError || !invoice) {
+    redirect(`/admin/families/${familyId}?error=${encodeURIComponent(insertError?.message || 'Failed to create invoice')}`)
+  }
+
+  // Link all unbilled charges to this invoice
+  const chargeIds = unbilledCharges.map(c => c.id)
+  await supabase
+    .from('charges')
+    .update({ invoice_id: invoice.id })
+    .in('id', chargeIds)
+
+  // No balance change — charges already exist, we're just grouping them into an invoice
+
+  revalidatePath('/admin/payments')
+  revalidatePath('/admin/payments/invoices')
+  revalidatePath(`/admin/families/${familyId}`)
+  redirect('/admin/payments/invoices')
+}
+
+// ── Send Overdue Payment Reminders ─────────────────────────────────────
+
+export async function sendOverdueReminders() {
+  await requireAdmin()
+  const supabase = await createClient()
+
+  // Find families with negative balance (they owe money)
+  const { data: overdueBalances } = await supabase
+    .from('family_balance')
+    .select('family_id, balance_cents')
+    .lt('balance_cents', 0)
+
+  if (!overdueBalances || overdueBalances.length === 0) {
+    redirect('/admin/payments?success=' + encodeURIComponent('No overdue balances found'))
+  }
+
+  let sentCount = 0
+
+  for (const entry of overdueBalances) {
+    const amountOwed = Math.abs(entry.balance_cents)
+    const dollars = (amountOwed / 100).toFixed(2)
+
+    try {
+      await sendNotificationToTarget({
+        title: 'Payment Reminder',
+        body: `You have an outstanding balance of $${dollars}. Please make a payment at your earliest convenience.`,
+        url: '/parent/payments',
+        targetType: 'family',
+        targetId: entry.family_id,
+      })
+      sentCount++
+    } catch (e) {
+      console.error(`Failed to send reminder to family ${entry.family_id}:`, e)
+    }
+  }
+
+  redirect('/admin/payments?success=' + encodeURIComponent(`Sent ${sentCount} overdue reminder(s)`))
 }

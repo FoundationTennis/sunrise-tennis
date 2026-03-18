@@ -168,6 +168,10 @@ export default async function ParentProgramDetailPage({
             familyId={familyId}
             players={eligiblePlayers.map(p => ({ id: p.id, name: `${p.first_name} ${p.last_name}`, level: p.ball_color }))}
             programLevel={program.level}
+            termFeeCents={program.term_fee_cents}
+            perSessionCents={program.per_session_cents}
+            earlyPayDiscountPct={program.early_pay_discount_pct}
+            remainingSessions={upcomingSessions?.length ?? null}
           />
         )}
 

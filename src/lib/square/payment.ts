@@ -6,6 +6,8 @@ import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { validateFormData } from '@/lib/utils/validation'
 import { checkRateLimit } from '@/lib/utils/rate-limit'
+import { recalculateBalance } from '@/lib/utils/billing'
+import { sendPushToUser } from '@/lib/push/send'
 
 const squarePaymentFormSchema = z.object({
   source_id: z.string().min(1, 'Payment token is required'),
@@ -50,8 +52,8 @@ export async function processSquarePayment(formData: FormData) {
   }
 
   const amountCents = Math.round(parseFloat(amountDollars) * 100)
-  if (amountCents <= 0) {
-    redirect('/parent/payments?error=' + encodeURIComponent('Invalid amount'))
+  if (amountCents < 100) {
+    redirect('/parent/payments?error=' + encodeURIComponent('Minimum payment is $1.00'))
   }
 
   // Call Square Payments API
@@ -100,7 +102,7 @@ export async function processSquarePayment(formData: FormData) {
       square_payment_id: squarePaymentId,
       invoice_id: invoiceId || null,
       description: description || null,
-      category: 'Individual Lesson',
+      category: null,
       received_at: new Date().toISOString(),
       recorded_by: user.id,
     })
@@ -111,30 +113,8 @@ export async function processSquarePayment(formData: FormData) {
     redirect('/parent/payments?error=' + encodeURIComponent('Payment processed but failed to record. Please contact admin. Ref: ' + squarePaymentId))
   }
 
-  // Update family balance
-  const { data: currentBalance } = await supabase
-    .from('family_balance')
-    .select('balance_cents')
-    .eq('family_id', familyId)
-    .single()
-
-  if (currentBalance) {
-    await supabase
-      .from('family_balance')
-      .update({
-        balance_cents: currentBalance.balance_cents + amountCents,
-        last_updated: new Date().toISOString(),
-      })
-      .eq('family_id', familyId)
-  } else {
-    await supabase
-      .from('family_balance')
-      .insert({
-        family_id: familyId,
-        balance_cents: amountCents,
-        last_updated: new Date().toISOString(),
-      })
-  }
+  // Recalculate family balance (single source of truth — no manual math)
+  await recalculateBalance(supabase, familyId)
 
   // Mark invoice as paid if linked
   if (invoiceId) {
@@ -142,6 +122,17 @@ export async function processSquarePayment(formData: FormData) {
       .from('invoices')
       .update({ status: 'paid', paid_at: new Date().toISOString() })
       .eq('id', invoiceId)
+  }
+
+  // Send payment receipt notification
+  try {
+    await sendPushToUser(user.id, {
+      title: 'Payment Received',
+      body: `Payment of $${amountDollars} has been processed successfully.`,
+      url: '/parent/payments',
+    })
+  } catch (e) {
+    console.error('Payment notification failed:', e instanceof Error ? e.message : 'Unknown')
   }
 
   revalidatePath('/parent/payments')

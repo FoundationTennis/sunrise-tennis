@@ -164,36 +164,51 @@ export type Database = {
           booked_at: string | null
           booked_by: string | null
           booking_type: string
+          discount_cents: number | null
           family_id: string
           id: string
           notes: string | null
+          payment_option: string | null
           player_id: string
+          price_cents: number | null
           program_id: string | null
           session_id: string | null
+          sessions_charged: number | null
+          sessions_total: number | null
           status: string
         }
         Insert: {
           booked_at?: string | null
           booked_by?: string | null
           booking_type: string
+          discount_cents?: number | null
           family_id: string
           id?: string
           notes?: string | null
+          payment_option?: string | null
           player_id: string
+          price_cents?: number | null
           program_id?: string | null
           session_id?: string | null
+          sessions_charged?: number | null
+          sessions_total?: number | null
           status?: string
         }
         Update: {
           booked_at?: string | null
           booked_by?: string | null
           booking_type?: string
+          discount_cents?: number | null
           family_id?: string
           id?: string
           notes?: string | null
+          payment_option?: string | null
           player_id?: string
+          price_cents?: number | null
           program_id?: string | null
           session_id?: string | null
+          sessions_charged?: number | null
+          sessions_total?: number | null
           status?: string
         }
         Relationships: [
@@ -870,6 +885,7 @@ export type Database = {
           day_of_week: number | null
           description: string | null
           duration_min: number | null
+          early_pay_discount_pct: number | null
           end_time: string | null
           id: string
           level: string
@@ -889,6 +905,7 @@ export type Database = {
           day_of_week?: number | null
           description?: string | null
           duration_min?: number | null
+          early_pay_discount_pct?: number | null
           end_time?: string | null
           id?: string
           level: string
@@ -908,6 +925,7 @@ export type Database = {
           day_of_week?: number | null
           description?: string | null
           duration_min?: number | null
+          early_pay_discount_pct?: number | null
           end_time?: string | null
           id?: string
           level?: string
@@ -1212,6 +1230,186 @@ export type Database = {
         }
         Relationships: []
       }
+      charges: {
+        Row: {
+          id: string
+          family_id: string
+          player_id: string | null
+          type: string
+          source_type: string
+          source_id: string | null
+          session_id: string | null
+          program_id: string | null
+          booking_id: string | null
+          description: string
+          amount_cents: number
+          status: string
+          invoice_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          player_id?: string | null
+          type: string
+          source_type: string
+          source_id?: string | null
+          session_id?: string | null
+          program_id?: string | null
+          booking_id?: string | null
+          description: string
+          amount_cents: number
+          status?: string
+          invoice_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          player_id?: string | null
+          type?: string
+          source_type?: string
+          source_id?: string | null
+          session_id?: string | null
+          program_id?: string | null
+          booking_id?: string | null
+          description?: string
+          amount_cents?: number
+          status?: string
+          invoice_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      family_pricing: {
+        Row: {
+          id: string
+          family_id: string
+          program_id: string | null
+          program_type: string | null
+          per_session_cents: number | null
+          term_fee_cents: number | null
+          notes: string | null
+          valid_from: string
+          valid_until: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          program_id?: string | null
+          program_type?: string | null
+          per_session_cents?: number | null
+          term_fee_cents?: number | null
+          notes?: string | null
+          valid_from?: string
+          valid_until?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          program_id?: string | null
+          program_type?: string | null
+          per_session_cents?: number | null
+          term_fee_cents?: number | null
+          notes?: string | null
+          valid_from?: string
+          valid_until?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      vouchers: {
+        Row: {
+          id: string
+          family_id: string
+          voucher_code: string
+          voucher_type: string
+          amount_cents: number
+          status: string
+          submitted_by: string | null
+          submitted_at: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          charge_id: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          voucher_code: string
+          voucher_type?: string
+          amount_cents?: number
+          status?: string
+          submitted_by?: string | null
+          submitted_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          charge_id?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          voucher_code?: string
+          voucher_type?: string
+          amount_cents?: number
+          status?: string
+          submitted_by?: string | null
+          submitted_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          charge_id?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          id: string
+          referring_family_id: string
+          referred_family_id: string
+          referred_player_id: string | null
+          status: string
+          credit_amount_cents: number
+          charge_id: string | null
+          qualified_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          referring_family_id: string
+          referred_family_id: string
+          referred_player_id?: string | null
+          status?: string
+          credit_amount_cents?: number
+          charge_id?: string | null
+          qualified_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          referring_family_id?: string
+          referred_family_id?: string
+          referred_player_id?: string | null
+          status?: string
+          credit_amount_cents?: number
+          charge_id?: string | null
+          qualified_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1221,6 +1419,9 @@ export type Database = {
       get_user_family_id: { Args: { user_uuid: string }; Returns: string }
       get_user_role: { Args: { user_uuid: string }; Returns: string }
       is_admin: { Args: { user_uuid: string }; Returns: boolean }
+      recalculate_family_balance: { Args: { target_family_id: string }; Returns: number }
+      get_session_price: { Args: { target_family_id: string; target_program_id: string; target_program_type?: string | null }; Returns: number }
+      get_term_price: { Args: { target_family_id: string; target_program_id: string; target_program_type?: string | null }; Returns: number }
     }
     Enums: {
       [_ in never]: never

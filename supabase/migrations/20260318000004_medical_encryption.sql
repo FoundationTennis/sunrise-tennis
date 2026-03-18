@@ -13,7 +13,7 @@ RETURNS text AS $$
   SELECT CASE
     WHEN plaintext IS NULL OR plaintext = '' THEN plaintext
     ELSE encode(
-      pgp_sym_encrypt(
+      extensions.pgp_sym_encrypt(
         plaintext,
         (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'medical_encryption_key')
       ),
@@ -27,7 +27,7 @@ CREATE OR REPLACE FUNCTION decrypt_medical(ciphertext text)
 RETURNS text AS $$
   SELECT CASE
     WHEN ciphertext IS NULL OR ciphertext = '' THEN ciphertext
-    ELSE pgp_sym_decrypt(
+    ELSE extensions.pgp_sym_decrypt(
       decode(ciphertext, 'base64')::bytea,
       (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'medical_encryption_key')
     )

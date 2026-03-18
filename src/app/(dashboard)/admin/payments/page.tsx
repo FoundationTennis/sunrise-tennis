@@ -16,14 +16,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CreditCard, AlertCircle } from 'lucide-react'
+import { CreditCard, AlertCircle, Bell, Ticket } from 'lucide-react'
+import { sendOverdueReminders } from './actions'
 
 export default async function AdminPaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; filter?: string }>
+  searchParams: Promise<{ error?: string; success?: string; filter?: string }>
 }) {
-  const { error, filter } = await searchParams
+  const { error, success, filter } = await searchParams
   const supabase = await createClient()
 
   const showAll = filter === 'all'
@@ -50,10 +51,20 @@ export default async function AdminPaymentsPage({
         title="Payments"
         description="Record payments and manage invoices."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button asChild>
               <Link href="/admin/payments/invoices">Invoices</Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/vouchers">
+                <Ticket className="mr-1.5 size-4" /> Vouchers
+              </Link>
+            </Button>
+            <form action={sendOverdueReminders} className="inline">
+              <Button type="submit" variant="outline" size="default">
+                <Bell className="mr-1.5 size-4" /> Send Reminders
+              </Button>
+            </form>
             <Button asChild variant="outline">
               <Link href={showAll ? '/admin/payments' : '/admin/payments?filter=all'}>
                 {showAll ? 'Recent' : 'Show all'}
@@ -67,6 +78,11 @@ export default async function AdminPaymentsPage({
         <div className="mt-4 flex items-center gap-2 rounded-lg border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
           <AlertCircle className="size-4 shrink-0" />
           {error}
+        </div>
+      )}
+      {success && (
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/20 bg-success-light px-4 py-3 text-sm text-success">
+          {success}
         </div>
       )}
 
