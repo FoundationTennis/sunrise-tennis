@@ -6,6 +6,7 @@ import crypto from 'crypto'
  * Square webhook handler.
  * Receives payment.completed, payment.failed, refund.created events.
  * Verifies HMAC-SHA256 signature before processing.
+ * Includes idempotency checks to prevent double-processing on retries.
  */
 export async function POST(request: NextRequest) {
   const signatureKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY
@@ -43,11 +44,18 @@ export async function POST(request: NextRequest) {
   if (eventType === 'payment.completed') {
     const squarePaymentId = event.data?.object?.payment?.id
     if (squarePaymentId) {
-      await supabase
+      // Idempotency: only update if still pending (prevents double-processing)
+      const { data } = await supabase
         .from('payments')
         .update({ status: 'received', received_at: new Date().toISOString() })
         .eq('square_payment_id', squarePaymentId)
         .eq('status', 'pending')
+        .select('id')
+
+      if (!data?.length) {
+        // Already processed or not found — return 200 to stop retries
+        return NextResponse.json({ received: true, duplicate: true })
+      }
     }
   } else if (eventType === 'payment.failed') {
     const squarePaymentId = event.data?.object?.payment?.id
@@ -56,19 +64,20 @@ export async function POST(request: NextRequest) {
         .from('payments')
         .update({ status: 'overdue', notes: 'Payment failed via Square' })
         .eq('square_payment_id', squarePaymentId)
+        .neq('status', 'overdue') // Idempotency: skip if already marked failed
     }
   } else if (eventType === 'refund.created') {
     const refund = event.data?.object?.refund
     const squarePaymentId = refund?.payment_id
     if (squarePaymentId) {
-      // Find the original payment and record refund
+      // Idempotency: check if already refunded before processing
       const { data: originalPayment } = await supabase
         .from('payments')
-        .select('family_id')
+        .select('family_id, status')
         .eq('square_payment_id', squarePaymentId)
         .single()
 
-      if (originalPayment) {
+      if (originalPayment && originalPayment.status !== 'refunded') {
         const refundAmountCents = refund.amount_money?.amount ?? 0
         await supabase
           .from('payments')
@@ -91,6 +100,9 @@ export async function POST(request: NextRequest) {
             })
             .eq('family_id', originalPayment.family_id)
         }
+      } else {
+        // Already refunded — return 200 to stop retries
+        return NextResponse.json({ received: true, duplicate: true })
       }
     }
   }

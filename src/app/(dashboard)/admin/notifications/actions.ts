@@ -2,26 +2,21 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient, getSessionUser } from '@/lib/supabase/server'
+import { createClient, getSessionUser, requireAdmin } from '@/lib/supabase/server'
 import { sendNotificationToTarget } from '@/lib/push/send'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { validateFormData, sendNotificationFormSchema } from '@/lib/utils/validation'
 
 export async function sendNotification(formData: FormData) {
+  const user = await requireAdmin()
   const supabase = await createClient()
-  const user = await getSessionUser()
-  if (!user) redirect('/login')
 
-  const type = formData.get('type') as string
-  const title = formData.get('title') as string
-  const body = formData.get('body') as string
-  const url = formData.get('url') as string
-  const targetType = formData.get('target_type') as string
-  const targetId = formData.get('target_id') as string
-  const targetLevel = formData.get('target_level') as string
-
-  if (!type || !title || !targetType) {
-    redirect('/admin/notifications/compose?error=Missing required fields')
+  const parsed = validateFormData(formData, sendNotificationFormSchema)
+  if (!parsed.success) {
+    redirect('/admin/notifications/compose?error=' + encodeURIComponent(parsed.error))
   }
+
+  const { type, title, body, url, target_type: targetType, target_id: targetId, target_level: targetLevel } = parsed.data
 
   // Insert notification record
   const { data: notification, error } = await supabase

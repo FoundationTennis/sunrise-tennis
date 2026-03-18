@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
+import { validateFormData, teamMessageFormSchema } from '@/lib/utils/validation'
 
 async function getParentFamilyId(): Promise<{ userId: string; familyId: string } | null> {
   const supabase = await createClient()
@@ -41,13 +42,17 @@ export async function respondToAvailability(teamId: string, formData: FormData) 
       const playerId = parts[1]
       const matchDate = parts.slice(2).join('-') // Rejoin date parts
       if (playerIds.has(playerId)) {
-        const noteKey = `note_${playerId}_${parts.slice(2).join('_')}`
-        updates.push({
-          playerId,
-          matchDate,
-          status: value as string,
-          note: (formData.get(noteKey) as string) || '',
-        })
+        const status = (value as string).trim()
+        // Only accept known statuses
+        if (['available', 'unavailable', 'maybe', 'pending'].includes(status)) {
+          const noteKey = `note_${playerId}_${parts.slice(2).join('_')}`
+          updates.push({
+            playerId,
+            matchDate,
+            status,
+            note: ((formData.get(noteKey) as string) || '').trim().slice(0, 500),
+          })
+        }
       }
     }
   })
@@ -74,15 +79,17 @@ export async function sendTeamMessage(teamId: string, formData: FormData) {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  const body = formData.get('body') as string
-  if (!body?.trim()) return
+  const parsed = validateFormData(formData, teamMessageFormSchema)
+  if (!parsed.success) return
+
+  const { body } = parsed.data
 
   const { error } = await supabase
     .from('team_messages')
     .insert({
       team_id: teamId,
       sender_id: user.id,
-      body: body.trim(),
+      body,
     })
 
   if (error) {

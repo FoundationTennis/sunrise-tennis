@@ -115,15 +115,27 @@ export default async function ParentDashboard() {
 
         {players && players.length > 0 ? (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {players.map((player, i) => (
+            {players.map((player, i) => {
+              // Gender-based card styling
+              const genderStyle = player.gender === 'female'
+                ? 'bg-[#B07E9B]/8 border-[#B07E9B]/20 hover:border-[#B07E9B]/40'
+                : player.gender === 'non_binary'
+                ? 'bg-[#8B78B0]/8 border-[#8B78B0]/20 hover:border-[#8B78B0]/40'
+                : 'bg-[#2B5EA7]/8 border-[#2B5EA7]/20 hover:border-[#2B5EA7]/40' // male or unset defaults to blue
+              const accentBar = player.gender === 'female'
+                ? 'bg-gradient-to-b from-[#B07E9B] to-[#E87450]'
+                : player.gender === 'non_binary'
+                ? 'bg-gradient-to-b from-[#8B78B0] to-[#B07E9B]'
+                : 'bg-gradient-to-b from-primary to-[#6480A4]'
+
+              return (
                 <Link
                   key={player.id}
                   href={`/parent/players/${player.id}`}
-                  className="group relative block overflow-hidden rounded-xl border border-border bg-card p-4 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01] hover:border-primary/30"
+                  className={`group relative block overflow-hidden rounded-xl p-4 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01] ${genderStyle}`}
                   style={{ animationDelay: `${(i + 1) * 80}ms` }}
                 >
-                  {/* Primary accent bar */}
-                  <div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-primary to-secondary" />
+                  <div className={`absolute left-0 top-0 h-full w-1 ${accentBar}`} />
 
                   <div className="flex items-center gap-3 pl-2">
                     <div className="min-w-0 flex-1">
@@ -137,7 +149,8 @@ export default async function ParentDashboard() {
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
                   </div>
                 </Link>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="mt-3">

@@ -1,5 +1,37 @@
 import { z } from 'zod'
 
+// ── Shared Helpers ──────────────────────────────────────────────────────
+
+/** Trimmed string with max length to prevent payload bombs */
+const safeString = (maxLen = 2000) => z.string().trim().max(maxLen)
+const requiredString = (msg: string, maxLen = 500) => safeString(maxLen).min(1, msg)
+const optionalString = (maxLen = 2000) => safeString(maxLen).optional().or(z.literal(''))
+const uuidString = (msg: string) => z.string().uuid(msg)
+const optionalUuid = () => z.string().uuid().optional().or(z.literal(''))
+const dollarAmount = (msg: string) =>
+  z.string().regex(/^\d+(\.\d{1,2})?$/, msg)
+
+/**
+ * Parse flat FormData into a plain object, then validate with a Zod schema.
+ * Returns { success: true, data } or { success: false, error: string }.
+ */
+export function validateFormData<T extends z.ZodType>(
+  formData: FormData,
+  schema: T,
+): { success: true; data: z.infer<T> } | { success: false; error: string } {
+  const raw: Record<string, unknown> = {}
+  formData.forEach((value, key) => {
+    raw[key] = value
+  })
+  const result = schema.safeParse(raw)
+  if (!result.success) {
+    return { success: false, error: result.error.issues[0].message }
+  }
+  return { success: true, data: result.data }
+}
+
+// ── Enum Schemas ────────────────────────────────────────────────────────
+
 export const familyStatusSchema = z.enum(['active', 'inactive', 'lead', 'archived'])
 export const playerStatusSchema = z.enum(['active', 'inactive', 'archived'])
 export const ballColorSchema = z.enum(['blue', 'red', 'orange', 'green', 'yellow', 'competitive'])
@@ -13,6 +45,8 @@ export const paymentStatusSchema = z.enum(['received', 'pending', 'overdue', 're
 export const userRoleSchema = z.enum(['parent', 'coach', 'admin'])
 export const programTypeSchema = z.enum(['group', 'squad', 'school', 'competition'])
 export const mediaVisibilitySchema = z.enum(['family_only', 'program', 'public'])
+
+// ── Object Schemas (for API-style payloads) ─────────────────────────────
 
 export const contactSchema = z.object({
   name: z.string().min(1),
@@ -47,3 +81,196 @@ export const createPlayerSchema = z.object({
   comp_interest: z.enum(['yes', 'no', 'future']).optional(),
   media_consent: z.boolean().default(false),
 })
+
+// ── Form Schemas (flat FormData validation) ─────────────────────────────
+
+// Auth
+export const loginFormSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  password: requiredString('Password is required', 200),
+})
+
+export const signupFormSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(200),
+  full_name: requiredString('Full name is required'),
+  invite_token: optionalString(),
+})
+
+export const magicLinkFormSchema = z.object({
+  email: z.string().email('Valid email is required'),
+})
+
+// Admin - Families
+export const createFamilyFormSchema = z.object({
+  family_name: requiredString('Family name is required'),
+  contact_name: requiredString('Contact name is required'),
+  contact_phone: optionalString(),
+  contact_email: z.string().email().optional().or(z.literal('')),
+  address: optionalString(1000),
+  referred_by: optionalString(),
+})
+
+export const updateFamilyFormSchema = z.object({
+  family_name: requiredString('Family name is required'),
+  contact_name: requiredString('Contact name is required'),
+  contact_phone: optionalString(),
+  contact_email: z.string().email().optional().or(z.literal('')),
+  address: optionalString(1000),
+  status: familyStatusSchema,
+  notes: optionalString(5000),
+})
+
+// Admin - Players
+export const createPlayerFormSchema = z.object({
+  first_name: requiredString('First name is required'),
+  last_name: requiredString('Last name is required'),
+  dob: optionalString(),
+  ball_color: ballColorSchema.optional().or(z.literal('')),
+  level: ballColorSchema.optional().or(z.literal('')),
+  medical_notes: optionalString(5000),
+})
+
+export const updatePlayerFormSchema = z.object({
+  first_name: requiredString('First name is required'),
+  last_name: requiredString('Last name is required'),
+  dob: optionalString(),
+  ball_color: ballColorSchema.optional().or(z.literal('')),
+  level: ballColorSchema.optional().or(z.literal('')),
+  medical_notes: optionalString(5000),
+  current_focus: optionalString(2000),
+  short_term_goal: optionalString(1000),
+  long_term_goal: optionalString(1000),
+  media_consent: z.string().optional(),
+})
+
+// Admin - Programs
+export const createProgramFormSchema = z.object({
+  name: requiredString('Program name is required'),
+  type: programTypeSchema,
+  level: ballColorSchema.optional().or(z.literal('')),
+  day_of_week: optionalString(),
+  start_time: optionalString(),
+  end_time: optionalString(),
+  max_capacity: optionalString(),
+  per_session_dollars: optionalString(),
+  term_fee_dollars: optionalString(),
+  description: optionalString(5000),
+})
+
+export const updateProgramFormSchema = createProgramFormSchema.extend({
+  status: z.enum(['active', 'paused', 'archived']).optional().or(z.literal('')),
+})
+
+// Admin - Sessions
+export const createSessionFormSchema = z.object({
+  program_id: optionalUuid(),
+  date: requiredString('Date is required'),
+  start_time: optionalString(),
+  end_time: optionalString(),
+  session_type: sessionTypeSchema,
+  coach_id: optionalUuid(),
+  venue_id: optionalUuid(),
+})
+
+// Admin - Payments
+export const recordPaymentFormSchema = z.object({
+  family_id: uuidString('Invalid family'),
+  amount_dollars: dollarAmount('Valid amount is required (e.g. 85.00)'),
+  payment_method: paymentMethodSchema,
+  category: optionalString(),
+  description: optionalString(1000),
+  notes: optionalString(2000),
+  status: paymentStatusSchema.optional(),
+})
+
+export const createInvoiceFormSchema = z.object({
+  family_id: uuidString('Invalid family'),
+  amount_dollars: dollarAmount('Valid amount is required'),
+  description: optionalString(1000),
+  due_date: optionalString(),
+})
+
+// Admin - Teams
+export const createTeamFormSchema = z.object({
+  name: requiredString('Team name is required'),
+  season: optionalString(),
+  program_id: optionalUuid(),
+  coach_id: optionalUuid(),
+})
+
+export const updateTeamFormSchema = z.object({
+  name: requiredString('Team name is required'),
+  season: optionalString(),
+  coach_id: optionalUuid(),
+  status: z.enum(['active', 'archived']).optional().or(z.literal('')),
+})
+
+export const addTeamMemberFormSchema = z.object({
+  player_id: uuidString('Invalid player'),
+  role: optionalString(),
+})
+
+// Admin - Notifications
+export const sendNotificationFormSchema = z.object({
+  type: requiredString('Notification type is required'),
+  title: requiredString('Title is required', 200),
+  body: optionalString(5000),
+  url: optionalString(500),
+  target_type: requiredString('Target type is required'),
+  target_id: optionalUuid(),
+  target_level: optionalString(),
+})
+
+// Admin - Invitations
+export const createInvitationFormSchema = z.object({
+  email: z.string().email('Valid email is required'),
+})
+
+// Coach
+export const lessonNoteFormSchema = z.object({
+  player_id: uuidString('Player is required'),
+  focus: optionalString(2000),
+  progress: optionalString(5000),
+  drills_used: optionalString(2000),
+  video_url: z.string().url().optional().or(z.literal('')),
+  next_plan: optionalString(2000),
+  notes: optionalString(5000),
+})
+
+// Parent
+export const updateContactFormSchema = z.object({
+  contact_name: requiredString('Contact name is required'),
+  contact_phone: optionalString(),
+  contact_email: z.string().email().optional().or(z.literal('')),
+  address: optionalString(1000),
+  secondary_name: optionalString(),
+  secondary_phone: optionalString(),
+  secondary_email: z.string().email().optional().or(z.literal('')),
+})
+
+export const genderSchema = z.enum(['male', 'female', 'non_binary'])
+
+export const updatePlayerDetailsFormSchema = z.object({
+  first_name: requiredString('First name is required'),
+  last_name: requiredString('Last name is required'),
+  dob: optionalString(),
+  gender: genderSchema.optional().or(z.literal('')),
+  medical_notes: optionalString(5000),
+  media_consent: z.string().optional(),
+})
+
+// Parent - Programs
+export const enrolFormSchema = z.object({
+  player_id: uuidString('Invalid player'),
+  booking_type: bookingTypeSchema,
+  notes: optionalString(1000),
+})
+
+// Team messages (shared between parent and admin)
+export const teamMessageFormSchema = z.object({
+  body: safeString(5000).min(1, 'Message cannot be empty'),
+})
+
+// Availability response uses dynamic keys (status_PLAYERID_DATE)
+// so it's validated procedurally, not with a static schema

@@ -2,29 +2,25 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient, getSessionUser } from '@/lib/supabase/server'
+import { createClient, getSessionUser, requireAdmin } from '@/lib/supabase/server'
+import { validateFormData, recordPaymentFormSchema, createInvoiceFormSchema } from '@/lib/utils/validation'
 
 // ── Record Payment ──────────────────────────────────────────────────────
 
 export async function recordPayment(formData: FormData) {
+  const user = await requireAdmin()
   const supabase = await createClient()
-  const user = await getSessionUser()
 
-  const familyId = formData.get('family_id') as string
-  const amountDollars = formData.get('amount_dollars') as string
-  const paymentMethod = formData.get('payment_method') as string
-  const category = formData.get('category') as string
-  const description = formData.get('description') as string
-  const notes = formData.get('notes') as string
-  const status = formData.get('status') as string || 'received'
-
-  if (!familyId || !amountDollars || !paymentMethod) {
-    redirect('/admin/payments?error=' + encodeURIComponent('Family, amount, and payment method are required'))
+  const parsed = validateFormData(formData, recordPaymentFormSchema)
+  if (!parsed.success) {
+    redirect('/admin/payments?error=' + encodeURIComponent(parsed.error))
   }
 
+  const { family_id: familyId, amount_dollars: amountDollars, payment_method: paymentMethod, category, description, notes, status } = parsed.data
+
   const amountCents = Math.round(parseFloat(amountDollars) * 100)
-  if (isNaN(amountCents) || amountCents <= 0) {
-    redirect('/admin/payments?error=' + encodeURIComponent('Invalid amount'))
+  if (amountCents <= 0) {
+    redirect('/admin/payments?error=' + encodeURIComponent('Amount must be greater than zero'))
   }
 
   const { error } = await supabase
@@ -33,11 +29,11 @@ export async function recordPayment(formData: FormData) {
       family_id: familyId,
       amount_cents: amountCents,
       payment_method: paymentMethod,
-      status,
+      status: status || 'received',
       category: category || null,
       description: description || null,
       notes: notes || null,
-      received_at: status === 'received' ? new Date().toISOString() : null,
+      received_at: (status || 'received') === 'received' ? new Date().toISOString() : null,
       recorded_by: user?.id,
     })
 
@@ -79,6 +75,7 @@ export async function recordPayment(formData: FormData) {
 // ── Confirm Pending Payment ──────────────────────────────────────────────
 
 export async function confirmPayment(paymentId: string) {
+  await requireAdmin()
   const supabase = await createClient()
 
   const { data: payment, error: fetchError } = await supabase
@@ -134,16 +131,15 @@ export async function confirmPayment(paymentId: string) {
 // ── Create Invoice ──────────────────────────────────────────────────────
 
 export async function createInvoice(formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
 
-  const familyId = formData.get('family_id') as string
-  const amountDollars = formData.get('amount_dollars') as string
-  const description = formData.get('description') as string
-  const dueDate = formData.get('due_date') as string
-
-  if (!familyId || !amountDollars) {
-    redirect('/admin/payments/invoices?error=' + encodeURIComponent('Family and amount are required'))
+  const parsed = validateFormData(formData, createInvoiceFormSchema)
+  if (!parsed.success) {
+    redirect('/admin/payments/invoices?error=' + encodeURIComponent(parsed.error))
   }
+
+  const { family_id: familyId, amount_dollars: amountDollars, description, due_date: dueDate } = parsed.data
 
   const amountCents = Math.round(parseFloat(amountDollars) * 100)
 

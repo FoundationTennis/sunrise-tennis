@@ -152,11 +152,11 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
                 <BookOpen className="size-8 text-primary/25" />
               )}
             </div>
-            <div className="px-2.5 py-2">
+            <div className="px-2.5 py-2 text-center">
               <p className="text-[11px] font-semibold text-foreground">Lesson Notes</p>
-              <p className="text-[10px] text-muted-foreground">
-                {latestNoteDate ? `Updated ${latestNoteDate}` : 'No notes yet'}
-              </p>
+              {latestNoteDate && (
+                <p className="text-[10px] text-muted-foreground">Updated {latestNoteDate}</p>
+              )}
             </div>
           </Link>
 
@@ -175,11 +175,11 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
                 </div>
               )}
             </div>
-            <div className="px-2.5 py-2">
+            <div className="px-2.5 py-2 text-center">
               <p className="text-[11px] font-semibold text-foreground">Video Analysis</p>
-              <p className="text-[10px] text-muted-foreground">
-                {latestVideoDate ? `Updated ${latestVideoDate}` : 'No videos yet'}
-              </p>
+              {latestVideoDate && (
+                <p className="text-[10px] text-muted-foreground">Updated {latestVideoDate}</p>
+              )}
             </div>
           </Link>
 
@@ -191,9 +191,8 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
             <div className="flex aspect-[4/3] items-center justify-center bg-accent/5">
               <ImageIcon className="size-8 text-accent/25" />
             </div>
-            <div className="px-2.5 py-2">
+            <div className="px-2.5 py-2 text-center">
               <p className="text-[11px] font-semibold text-foreground">Gallery</p>
-              <p className="text-[10px] text-muted-foreground">No photos yet</p>
             </div>
           </Link>
         </div>
@@ -209,6 +208,7 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
               first_name: player.first_name,
               last_name: player.last_name,
               dob: player.dob,
+              gender: player.gender,
               medical_notes: player.medical_notes,
               media_consent: player.media_consent,
             }} />
@@ -218,6 +218,12 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
               <span className="text-xs font-medium text-muted-foreground">Level</span>
               <span className="text-sm font-medium text-foreground">{levelText}</span>
             </div>
+            {player.gender && (
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-xs font-medium text-muted-foreground">Gender</span>
+                <span className="text-sm text-foreground capitalize">{player.gender === 'non_binary' ? 'Non-Binary' : player.gender}</span>
+              </div>
+            )}
             {player.dob && (
               <div className="flex items-center justify-between px-5 py-3">
                 <span className="text-xs font-medium text-muted-foreground">Date of Birth</span>
@@ -272,7 +278,7 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="capitalize text-xs bg-primary/8 text-primary border-primary/20">{program.type}</Badge>
+                      <Badge className="capitalize text-xs bg-primary text-white border-primary">{program.type}</Badge>
                       <ChevronRight className="size-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5" />
                     </div>
                   </div>

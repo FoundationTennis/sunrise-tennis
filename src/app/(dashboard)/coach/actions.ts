@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
+import { validateFormData, lessonNoteFormSchema, attendanceStatusSchema } from '@/lib/utils/validation'
 
 // ── Lesson Notes ────────────────────────────────────────────────────────
 
@@ -17,17 +18,12 @@ export async function createLessonNote(sessionId: string, formData: FormData) {
     .eq('user_id', user?.id ?? '')
     .single()
 
-  const playerId = formData.get('player_id') as string
-  const focus = formData.get('focus') as string
-  const progress = formData.get('progress') as string
-  const drillsUsed = formData.get('drills_used') as string
-  const videoUrl = formData.get('video_url') as string
-  const nextPlan = formData.get('next_plan') as string
-  const notes = formData.get('notes') as string
-
-  if (!playerId) {
-    redirect(`/coach/schedule/${sessionId}?error=${encodeURIComponent('Player is required')}`)
+  const parsed = validateFormData(formData, lessonNoteFormSchema)
+  if (!parsed.success) {
+    redirect(`/coach/schedule/${sessionId}?error=${encodeURIComponent(parsed.error)}`)
   }
+
+  const { player_id: playerId, focus, progress, drills_used: drillsUsed, video_url: videoUrl, next_plan: nextPlan, notes } = parsed.data
 
   const { error } = await supabase
     .from('lesson_notes')
@@ -59,7 +55,12 @@ export async function coachUpdateAttendance(sessionId: string, formData: FormDat
   const entries: { playerId: string; status: string }[] = []
   formData.forEach((value, key) => {
     if (key.startsWith('attendance_')) {
-      entries.push({ playerId: key.replace('attendance_', ''), status: value as string })
+      const playerId = key.replace('attendance_', '')
+      const status = value as string
+      const statusResult = attendanceStatusSchema.safeParse(status)
+      if (statusResult.success) {
+        entries.push({ playerId, status: statusResult.data })
+      }
     }
   })
 

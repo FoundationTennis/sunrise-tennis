@@ -2,14 +2,32 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient, getSessionUser } from '@/lib/supabase/server'
+import { createClient, getSessionUser, requireAdmin } from '@/lib/supabase/server'
 import { sendNotificationToTarget } from '@/lib/push/send'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import {
+  validateFormData,
+  createFamilyFormSchema,
+  updateFamilyFormSchema,
+  createPlayerFormSchema,
+  updatePlayerFormSchema,
+  createProgramFormSchema,
+  updateProgramFormSchema,
+  createSessionFormSchema,
+  createInvitationFormSchema,
+  attendanceStatusSchema,
+} from '@/lib/utils/validation'
 
 // ── Families ────────────────────────────────────────────────────────────
 
 export async function createFamily(formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
+
+  const parsed = validateFormData(formData, createFamilyFormSchema)
+  if (!parsed.success) {
+    redirect(`/admin/families/new?error=${encodeURIComponent(parsed.error)}`)
+  }
 
   // Generate next display_id (C001, C002, etc.)
   const { data: lastFamily } = await supabase
@@ -26,12 +44,7 @@ export async function createFamily(formData: FormData) {
   }
   const displayId = `C${String(nextNum).padStart(3, '0')}`
 
-  const familyName = formData.get('family_name') as string
-  const contactName = formData.get('contact_name') as string
-  const contactPhone = formData.get('contact_phone') as string
-  const contactEmail = formData.get('contact_email') as string
-  const address = formData.get('address') as string
-  const referredBy = formData.get('referred_by') as string
+  const { family_name: familyName, contact_name: contactName, contact_phone: contactPhone, contact_email: contactEmail, address, referred_by: referredBy } = parsed.data
 
   const primaryContact = {
     name: contactName,
@@ -61,15 +74,15 @@ export async function createFamily(formData: FormData) {
 }
 
 export async function updateFamily(id: string, formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
 
-  const familyName = formData.get('family_name') as string
-  const contactName = formData.get('contact_name') as string
-  const contactPhone = formData.get('contact_phone') as string
-  const contactEmail = formData.get('contact_email') as string
-  const address = formData.get('address') as string
-  const status = formData.get('status') as string
-  const notes = formData.get('notes') as string
+  const parsed = validateFormData(formData, updateFamilyFormSchema)
+  if (!parsed.success) {
+    redirect(`/admin/families/${id}?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { family_name: familyName, contact_name: contactName, contact_phone: contactPhone, contact_email: contactEmail, address, status, notes } = parsed.data
 
   const primaryContact = {
     name: contactName,
@@ -100,14 +113,15 @@ export async function updateFamily(id: string, formData: FormData) {
 // ── Players ─────────────────────────────────────────────────────────────
 
 export async function createPlayer(familyId: string, formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
 
-  const firstName = formData.get('first_name') as string
-  const lastName = formData.get('last_name') as string
-  const dob = formData.get('dob') as string
-  const ballColor = formData.get('ball_color') as string
-  const level = formData.get('level') as string
-  const medicalNotes = formData.get('medical_notes') as string
+  const parsed = validateFormData(formData, createPlayerFormSchema)
+  if (!parsed.success) {
+    redirect(`/admin/families/${familyId}?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { first_name: firstName, last_name: lastName, dob, ball_color: ballColor, level, medical_notes: medicalNotes } = parsed.data
 
   const { error } = await supabase
     .from('players')
@@ -131,18 +145,15 @@ export async function createPlayer(familyId: string, formData: FormData) {
 }
 
 export async function updatePlayer(playerId: string, familyId: string, formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
 
-  const firstName = formData.get('first_name') as string
-  const lastName = formData.get('last_name') as string
-  const dob = formData.get('dob') as string
-  const ballColor = formData.get('ball_color') as string
-  const level = formData.get('level') as string
-  const medicalNotes = formData.get('medical_notes') as string
-  const currentFocus = formData.get('current_focus') as string
-  const shortTermGoal = formData.get('short_term_goal') as string
-  const longTermGoal = formData.get('long_term_goal') as string
-  const mediaConsent = formData.get('media_consent') === 'on'
+  const parsed = validateFormData(formData, updatePlayerFormSchema)
+  if (!parsed.success) {
+    redirect(`/admin/families/${familyId}/players/${playerId}?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { first_name: firstName, last_name: lastName, dob, ball_color: ballColor, level, medical_notes: medicalNotes, current_focus: currentFocus, short_term_goal: shortTermGoal, long_term_goal: longTermGoal, media_consent: mediaConsent } = parsed.data
 
   const { error } = await supabase
     .from('players')
@@ -156,7 +167,7 @@ export async function updatePlayer(playerId: string, familyId: string, formData:
       current_focus: currentFocus ? currentFocus.split(',').map((s) => s.trim()) : null,
       short_term_goal: shortTermGoal || null,
       long_term_goal: longTermGoal || null,
-      media_consent: mediaConsent,
+      media_consent: mediaConsent === 'on',
     })
     .eq('id', playerId)
 
@@ -172,11 +183,12 @@ export async function updatePlayer(playerId: string, familyId: string, formData:
 // ── Invitations ────────────────────────────────────────────────────────
 
 export async function createInvitation(familyId: string, formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
 
-  const email = formData.get('email') as string
-  if (!email) {
-    redirect(`/admin/families/${familyId}?error=${encodeURIComponent('Email is required')}`)
+  const parsed = validateFormData(formData, createInvitationFormSchema)
+  if (!parsed.success) {
+    redirect(`/admin/families/${familyId}?error=${encodeURIComponent(parsed.error)}`)
   }
 
   // Generate a URL-safe token
@@ -188,7 +200,7 @@ export async function createInvitation(familyId: string, formData: FormData) {
     .from('invitations')
     .insert({
       family_id: familyId,
-      email,
+      email: parsed.data.email,
       token,
       status: 'pending',
       created_by: user?.id,
@@ -205,18 +217,15 @@ export async function createInvitation(familyId: string, formData: FormData) {
 // ── Programs ────────────────────────────────────────────────────────────
 
 export async function createProgram(formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
 
-  const name = formData.get('name') as string
-  const type = formData.get('type') as string
-  const level = formData.get('level') as string
-  const dayOfWeek = formData.get('day_of_week') as string
-  const startTime = formData.get('start_time') as string
-  const endTime = formData.get('end_time') as string
-  const maxCapacity = formData.get('max_capacity') as string
-  const perSessionCents = formData.get('per_session_dollars') as string
-  const termFeeCents = formData.get('term_fee_dollars') as string
-  const description = formData.get('description') as string
+  const parsed = validateFormData(formData, createProgramFormSchema)
+  if (!parsed.success) {
+    redirect(`/admin/programs/new?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { name, type, level, day_of_week: dayOfWeek, start_time: startTime, end_time: endTime, max_capacity: maxCapacity, per_session_dollars: perSessionDollars, term_fee_dollars: termFeeDollars, description } = parsed.data
 
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
@@ -224,14 +233,14 @@ export async function createProgram(formData: FormData) {
     .from('programs')
     .insert({
       name,
-      type,
-      level,
+      type: type as string,
+      level: (level || '') as string,
       day_of_week: dayOfWeek ? parseInt(dayOfWeek, 10) : null,
       start_time: startTime || null,
       end_time: endTime || null,
       max_capacity: maxCapacity ? parseInt(maxCapacity, 10) : null,
-      per_session_cents: perSessionCents ? Math.round(parseFloat(perSessionCents) * 100) : null,
-      term_fee_cents: termFeeCents ? Math.round(parseFloat(termFeeCents) * 100) : null,
+      per_session_cents: perSessionDollars ? Math.round(parseFloat(perSessionDollars) * 100) : null,
+      term_fee_cents: termFeeDollars ? Math.round(parseFloat(termFeeDollars) * 100) : null,
       description: description || null,
       slug,
       status: 'active',
@@ -248,34 +257,30 @@ export async function createProgram(formData: FormData) {
 }
 
 export async function updateProgram(id: string, formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
 
-  const name = formData.get('name') as string
-  const type = formData.get('type') as string
-  const level = formData.get('level') as string
-  const dayOfWeek = formData.get('day_of_week') as string
-  const startTime = formData.get('start_time') as string
-  const endTime = formData.get('end_time') as string
-  const maxCapacity = formData.get('max_capacity') as string
-  const perSessionCents = formData.get('per_session_dollars') as string
-  const termFeeCents = formData.get('term_fee_dollars') as string
-  const description = formData.get('description') as string
-  const status = formData.get('status') as string
+  const parsed = validateFormData(formData, updateProgramFormSchema)
+  if (!parsed.success) {
+    redirect(`/admin/programs/${id}?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { name, type, level, day_of_week: dayOfWeek, start_time: startTime, end_time: endTime, max_capacity: maxCapacity, per_session_dollars: perSessionDollars, term_fee_dollars: termFeeDollars, description, status } = parsed.data
 
   const { error } = await supabase
     .from('programs')
     .update({
       name,
-      type,
-      level,
+      type: type as string,
+      level: (level || undefined) as string | undefined,
       day_of_week: dayOfWeek ? parseInt(dayOfWeek, 10) : null,
       start_time: startTime || null,
       end_time: endTime || null,
       max_capacity: maxCapacity ? parseInt(maxCapacity, 10) : null,
-      per_session_cents: perSessionCents ? Math.round(parseFloat(perSessionCents) * 100) : null,
-      term_fee_cents: termFeeCents ? Math.round(parseFloat(termFeeCents) * 100) : null,
+      per_session_cents: perSessionDollars ? Math.round(parseFloat(perSessionDollars) * 100) : null,
+      term_fee_cents: termFeeDollars ? Math.round(parseFloat(termFeeDollars) * 100) : null,
       description: description || null,
-      status,
+      status: status || undefined,
     })
     .eq('id', id)
 
@@ -291,15 +296,15 @@ export async function updateProgram(id: string, formData: FormData) {
 // ── Sessions ───────────────────────────────────────────────────────────
 
 export async function createSession(formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
 
-  const programId = formData.get('program_id') as string
-  const date = formData.get('date') as string
-  const startTime = formData.get('start_time') as string
-  const endTime = formData.get('end_time') as string
-  const sessionType = formData.get('session_type') as string
-  const coachId = formData.get('coach_id') as string
-  const venueId = formData.get('venue_id') as string
+  const parsed = validateFormData(formData, createSessionFormSchema)
+  if (!parsed.success) {
+    redirect(`/admin/sessions?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { program_id: programId, date, start_time: startTime, end_time: endTime, session_type: sessionType, coach_id: coachId, venue_id: venueId } = parsed.data
 
   const { error } = await supabase
     .from('sessions')
@@ -323,13 +328,20 @@ export async function createSession(formData: FormData) {
 }
 
 export async function updateAttendance(sessionId: string, formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
 
   // Parse attendance entries from form: attendance_PLAYERID = present|absent|late
   const entries: { playerId: string; status: string }[] = []
   formData.forEach((value, key) => {
     if (key.startsWith('attendance_')) {
-      entries.push({ playerId: key.replace('attendance_', ''), status: value as string })
+      const playerId = key.replace('attendance_', '')
+      const status = value as string
+      // Validate each attendance status
+      const statusResult = attendanceStatusSchema.safeParse(status)
+      if (statusResult.success) {
+        entries.push({ playerId, status: statusResult.data })
+      }
     }
   })
 
@@ -348,14 +360,15 @@ export async function updateAttendance(sessionId: string, formData: FormData) {
 }
 
 export async function cancelSession(sessionId: string, formData: FormData) {
+  await requireAdmin()
   const supabase = await createClient()
-  const reason = formData.get('reason') as string
+  const reason = (formData.get('reason') as string)?.trim() || null
 
   const { error } = await supabase
     .from('sessions')
     .update({
       status: 'cancelled',
-      cancellation_reason: reason || null,
+      cancellation_reason: reason,
     })
     .eq('id', sessionId)
 
@@ -371,15 +384,18 @@ export async function cancelSession(sessionId: string, formData: FormData) {
 // ── Admin Booking on Behalf ────────────────────────────────────────────
 
 export async function adminBookPlayer(formData: FormData) {
+  const user = await requireAdmin()
   const supabase = await createClient()
-
-  const user = await getSessionUser()
 
   const familyId = formData.get('family_id') as string
   const playerId = formData.get('player_id') as string
   const programId = formData.get('program_id') as string
   const bookingType = formData.get('booking_type') as string
-  const notes = formData.get('notes') as string
+  const notes = (formData.get('notes') as string)?.trim() || null
+
+  if (!familyId || !playerId || !programId) {
+    redirect(`/admin/programs?error=${encodeURIComponent('Missing required fields')}`)
+  }
 
   // Add to roster if term/casual enrolment
   const { data: existing } = await supabase
@@ -410,7 +426,7 @@ export async function adminBookPlayer(formData: FormData) {
       booking_type: bookingType,
       status: 'confirmed',
       booked_by: user?.id,
-      notes: notes || null,
+      notes,
     })
 
   if (error) {
@@ -458,7 +474,7 @@ export async function adminBookPlayer(formData: FormData) {
         .insert(userIds.map((uid) => ({ notification_id: notification.id, user_id: uid })))
     }
   } catch (e) {
-    console.error('Booking notification failed:', e)
+    console.error('Booking notification failed:', e instanceof Error ? e.message : 'Unknown error')
   }
 
   revalidatePath(`/admin/programs/${programId}`)

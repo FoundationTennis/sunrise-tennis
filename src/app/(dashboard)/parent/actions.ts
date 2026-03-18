@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
+import { validateFormData, updateContactFormSchema, updatePlayerDetailsFormSchema } from '@/lib/utils/validation'
 
 async function getParentFamilyId(): Promise<string | null> {
   const supabase = await createClient()
@@ -24,14 +25,12 @@ export async function updateContactInfo(formData: FormData) {
   const familyId = await getParentFamilyId()
   if (!familyId) redirect('/login')
 
-  const contactName = formData.get('contact_name') as string
-  const contactPhone = formData.get('contact_phone') as string
-  const contactEmail = formData.get('contact_email') as string
-  const address = formData.get('address') as string
+  const parsed = validateFormData(formData, updateContactFormSchema)
+  if (!parsed.success) {
+    redirect(`/parent/settings?error=${encodeURIComponent(parsed.error)}`)
+  }
 
-  const secondaryName = formData.get('secondary_name') as string
-  const secondaryPhone = formData.get('secondary_phone') as string
-  const secondaryEmail = formData.get('secondary_email') as string
+  const { contact_name: contactName, contact_phone: contactPhone, contact_email: contactEmail, address, secondary_name: secondaryName, secondary_phone: secondaryPhone, secondary_email: secondaryEmail } = parsed.data
 
   const primaryContact = {
     name: contactName,
@@ -108,11 +107,12 @@ export async function updatePlayerDetails(playerId: string, formData: FormData) 
 
   if (!player) redirect('/parent')
 
-  const firstName = formData.get('first_name') as string
-  const lastName = formData.get('last_name') as string
-  const dob = formData.get('dob') as string
-  const medicalNotes = formData.get('medical_notes') as string
-  const mediaConsent = formData.get('media_consent') === 'on'
+  const parsed = validateFormData(formData, updatePlayerDetailsFormSchema)
+  if (!parsed.success) {
+    redirect(`/parent/players/${playerId}?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { first_name: firstName, last_name: lastName, dob, gender, medical_notes: medicalNotes, media_consent: mediaConsent } = parsed.data
 
   const { error } = await supabase
     .from('players')
@@ -120,8 +120,9 @@ export async function updatePlayerDetails(playerId: string, formData: FormData) 
       first_name: firstName,
       last_name: lastName,
       dob: dob || null,
+      gender: gender || null,
       medical_notes: medicalNotes || null,
-      media_consent: mediaConsent,
+      media_consent: mediaConsent === 'on',
     })
     .eq('id', playerId)
 

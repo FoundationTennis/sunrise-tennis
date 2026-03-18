@@ -3,6 +3,17 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
+import { z } from 'zod'
+import { validateFormData } from '@/lib/utils/validation'
+import { checkRateLimit } from '@/lib/utils/rate-limit'
+
+const squarePaymentFormSchema = z.object({
+  source_id: z.string().min(1, 'Payment token is required'),
+  family_id: z.string().uuid('Invalid family'),
+  amount_dollars: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Valid amount is required'),
+  description: z.string().max(500).optional().or(z.literal('')),
+  invoice_id: z.string().uuid().optional().or(z.literal('')),
+})
 
 /**
  * Process a Square card payment.
@@ -12,18 +23,36 @@ import { createClient, getSessionUser } from '@/lib/supabase/server'
 export async function processSquarePayment(formData: FormData) {
   const supabase = await createClient()
   const user = await getSessionUser()
+  if (!user) redirect('/login')
 
-  const sourceId = formData.get('source_id') as string
-  const familyId = formData.get('family_id') as string
-  const amountDollars = formData.get('amount_dollars') as string
-  const description = formData.get('description') as string
-  const invoiceId = formData.get('invoice_id') as string
+  const parsed = validateFormData(formData, squarePaymentFormSchema)
+  if (!parsed.success) {
+    redirect('/parent/payments?error=' + encodeURIComponent(parsed.error))
+  }
 
-  if (!sourceId || !familyId || !amountDollars) {
-    redirect('/parent/payments?error=' + encodeURIComponent('Missing payment details'))
+  const { source_id: sourceId, family_id: familyId, amount_dollars: amountDollars, description, invoice_id: invoiceId } = parsed.data
+
+  // Verify the authenticated user owns this family before charging
+  const { data: userRole } = await supabase
+    .from('user_roles')
+    .select('family_id')
+    .eq('user_id', user.id)
+    .eq('role', 'parent')
+    .single()
+
+  if (!userRole || userRole.family_id !== familyId) {
+    redirect('/parent/payments?error=' + encodeURIComponent('Unauthorized'))
+  }
+
+  // Rate limit: 3 payment attempts per minute per user
+  if (!checkRateLimit(`payment:${user.id}`, 3, 60_000)) {
+    redirect('/parent/payments?error=' + encodeURIComponent('Too many payment attempts. Please wait a minute.'))
   }
 
   const amountCents = Math.round(parseFloat(amountDollars) * 100)
+  if (amountCents <= 0) {
+    redirect('/parent/payments?error=' + encodeURIComponent('Invalid amount'))
+  }
 
   // Call Square Payments API
   const squareEnv = process.env.SQUARE_ENVIRONMENT || 'sandbox'
@@ -73,12 +102,12 @@ export async function processSquarePayment(formData: FormData) {
       description: description || null,
       category: 'Individual Lesson',
       received_at: new Date().toISOString(),
-      recorded_by: user?.id,
+      recorded_by: user.id,
     })
 
   if (error) {
-    // Payment went through on Square but failed to record - log this
-    console.error('Payment recorded on Square but failed to save:', error, { squarePaymentId })
+    // Payment went through on Square but failed to record - log reference only
+    console.error('Payment recorded on Square but failed to save. Ref:', squarePaymentId)
     redirect('/parent/payments?error=' + encodeURIComponent('Payment processed but failed to record. Please contact admin. Ref: ' + squarePaymentId))
   }
 

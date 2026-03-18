@@ -712,6 +712,7 @@ export type Database = {
           dob: string | null
           family_id: string
           first_name: string
+          gender: string | null
           id: string
           last_name: string
           level: string | null
@@ -733,6 +734,7 @@ export type Database = {
           dob?: string | null
           family_id: string
           first_name: string
+          gender?: string | null
           id?: string
           last_name: string
           level?: string | null
@@ -754,6 +756,7 @@ export type Database = {
           dob?: string | null
           family_id?: string
           first_name?: string
+          gender?: string | null
           id?: string
           last_name?: string
           level?: string | null

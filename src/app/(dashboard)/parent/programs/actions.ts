@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { sendPushToUser } from '@/lib/push/send'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { validateFormData, enrolFormSchema } from '@/lib/utils/validation'
 
 async function getParentFamilyId(): Promise<{ userId: string; familyId: string } | null> {
   const supabase = await createClient()
@@ -27,9 +28,12 @@ export async function enrolInProgram(programId: string, familyId: string, formDa
   const auth = await getParentFamilyId()
   if (!auth || auth.familyId !== familyId) redirect('/login')
 
-  const playerId = formData.get('player_id') as string
-  const bookingType = formData.get('booking_type') as string
-  const notes = formData.get('notes') as string
+  const parsed = validateFormData(formData, enrolFormSchema)
+  if (!parsed.success) {
+    redirect(`/parent/programs/${programId}?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { player_id: playerId, booking_type: bookingType, notes } = parsed.data
 
   // Verify player belongs to this family
   const { data: player } = await supabase
@@ -136,7 +140,7 @@ export async function enrolInProgram(programId: string, familyId: string, formDa
       url: `/parent/programs/${programId}`,
     })
   } catch (e) {
-    console.error('Booking notification failed:', e)
+    console.error('Booking notification failed:', e instanceof Error ? e.message : 'Unknown error')
   }
 
   revalidatePath(`/parent/programs/${programId}`)

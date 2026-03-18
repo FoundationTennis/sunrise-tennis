@@ -3,13 +3,23 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { validateFormData, loginFormSchema, signupFormSchema, magicLinkFormSchema } from '@/lib/utils/validation'
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
 
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
+  const parsed = validateFormData(formData, loginFormSchema)
+  if (!parsed.success) {
+    redirect(`/login?error=${encodeURIComponent(parsed.error)}`)
+  }
 
+  // Rate limit: 5 login attempts per minute per email
+  if (!checkRateLimit(`login:${parsed.data.email}`, 5, 60_000)) {
+    redirect('/login?error=' + encodeURIComponent('Too many login attempts. Please wait a minute.'))
+  }
+
+  const { email, password } = parsed.data
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
@@ -23,10 +33,13 @@ export async function login(formData: FormData) {
 export async function loginWithMagicLink(formData: FormData) {
   const supabase = await createClient()
 
-  const email = formData.get('email') as string
+  const parsed = validateFormData(formData, magicLinkFormSchema)
+  if (!parsed.success) {
+    redirect(`/login?error=${encodeURIComponent(parsed.error)}`)
+  }
 
   const { error } = await supabase.auth.signInWithOtp({
-    email,
+    email: parsed.data.email,
     options: {
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
     },
@@ -42,10 +55,17 @@ export async function loginWithMagicLink(formData: FormData) {
 export async function signup(formData: FormData) {
   const supabase = await createClient()
 
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const fullName = formData.get('full_name') as string
-  const inviteToken = formData.get('invite_token') as string | null
+  const parsed = validateFormData(formData, signupFormSchema)
+  if (!parsed.success) {
+    redirect(`/signup?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { email, password, full_name: fullName, invite_token: inviteToken } = parsed.data
+
+  // Rate limit: 3 signup attempts per minute per email
+  if (!checkRateLimit(`signup:${email}`, 3, 60_000)) {
+    redirect('/signup?error=' + encodeURIComponent('Too many signup attempts. Please wait a minute.'))
+  }
 
   const { error } = await supabase.auth.signUp({
     email,

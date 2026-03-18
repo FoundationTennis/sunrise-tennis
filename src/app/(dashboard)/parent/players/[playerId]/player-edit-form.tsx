@@ -16,6 +16,7 @@ export function ParentPlayerEditForm({
     first_name: string
     last_name: string
     dob: string | null
+    gender: string | null
     medical_notes: string | null
     media_consent: boolean | null
   }
@@ -36,12 +37,12 @@ export function ParentPlayerEditForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-border bg-card p-6 shadow-elevated animate-slide-up">
+      <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-border bg-popover p-6 shadow-elevated animate-slide-up">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">Edit Player Details</h2>
           <button
@@ -68,6 +69,20 @@ export function ParentPlayerEditForm({
             <div>
               <Label htmlFor="dob">Date of birth</Label>
               <Input id="dob" name="dob" type="date" defaultValue={player.dob ?? ''} className="mt-1" />
+            </div>
+            <div>
+              <Label htmlFor="gender">Gender</Label>
+              <select
+                id="gender"
+                name="gender"
+                defaultValue={player.gender ?? ''}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="">Not specified</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="non_binary">Non-Binary</option>
+              </select>
             </div>
             <div className="flex items-center gap-3 pt-6">
               <input

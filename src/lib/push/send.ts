@@ -64,7 +64,7 @@ export async function sendPushToSubscription(
         .eq('endpoint', subscription.endpoint)
       return false
     }
-    console.error('Push send failed:', err)
+    console.error('Push send failed:', err instanceof Error ? err.message : 'Unknown error')
     return false
   }
 }
