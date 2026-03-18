@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { SquarePaymentForm } from '@/components/square-payment-form'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CreditCard, Building2, Copy, Check } from 'lucide-react'
+import { CreditCard, Building2, Copy, Check, ChevronRight } from 'lucide-react'
 
 export function PaymentOptions({
   familyId,
@@ -43,7 +43,7 @@ export function PaymentOptions({
             <select
               value={selectedInvoice}
               onChange={(e) => setSelectedInvoice(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">Choose an invoice...</option>
               {outstandingInvoices.map((inv) => (
@@ -58,26 +58,35 @@ export function PaymentOptions({
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <button
             onClick={() => setMethod('card')}
-            className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 text-left shadow-card transition-colors hover:border-primary/30 hover:bg-primary/5"
+            className="group relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-5 text-left shadow-card transition-all hover:shadow-elevated hover:scale-[1.01] hover:border-primary/40"
           >
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-              <CreditCard className="size-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium text-foreground">Pay by Card</p>
-              <p className="text-xs text-muted-foreground">Visa, Mastercard, AMEX via Square</p>
+            <div className="absolute right-0 top-0 size-20 rounded-bl-full bg-primary/5" />
+            <div className="relative flex items-center gap-4">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-primary/15 shadow-sm">
+                <CreditCard className="size-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground">Pay by Card</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Visa, Mastercard, AMEX via Square</p>
+              </div>
+              <ChevronRight className="size-5 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
             </div>
           </button>
+
           <button
             onClick={() => setMethod('bank')}
-            className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 text-left shadow-card transition-colors hover:border-primary/30 hover:bg-primary/5"
+            className="group relative overflow-hidden rounded-xl border border-secondary/20 bg-gradient-to-br from-secondary/5 to-secondary/10 p-5 text-left shadow-card transition-all hover:shadow-elevated hover:scale-[1.01] hover:border-secondary/40"
           >
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-              <Building2 className="size-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium text-foreground">Bank Transfer</p>
-              <p className="text-xs text-muted-foreground">Direct deposit to our account</p>
+            <div className="absolute right-0 top-0 size-20 rounded-bl-full bg-secondary/5" />
+            <div className="relative flex items-center gap-4">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-secondary/15 shadow-sm">
+                <Building2 className="size-6 text-secondary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground">Bank Transfer</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Direct deposit to our account</p>
+              </div>
+              <ChevronRight className="size-5 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
             </div>
           </button>
         </div>
@@ -121,7 +130,7 @@ export function PaymentOptions({
           Back
         </Button>
       </div>
-      <Card className="mt-4">
+      <Card className="mt-4 overflow-hidden border-border shadow-card">
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground">
             Transfer the amount to our bank account using the details below.

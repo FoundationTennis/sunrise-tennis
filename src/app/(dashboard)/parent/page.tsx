@@ -3,11 +3,9 @@ import Link from 'next/link'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatDate, formatTime } from '@/lib/utils/dates'
-import { PageHeader } from '@/components/page-header'
 import { StatusBadge } from '@/components/status-badge'
 import { BallLevelBadge } from '@/components/ball-level-badge'
 import { EmptyState } from '@/components/empty-state'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -16,10 +14,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Users, Calendar, GraduationCap } from 'lucide-react'
+import { Users, Calendar, GraduationCap, ChevronRight, TrendingUp } from 'lucide-react'
 import { EnrolledCalendar } from './enrolled-calendar'
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const BALL_COLORS: Record<string, { bg: string; border: string; ring: string; text: string; avatar: string }> = {
+  blue:   { bg: 'bg-ball-blue/8',   border: 'border-ball-blue/20',   ring: 'ring-ball-blue/30',   text: 'text-ball-blue',   avatar: 'bg-ball-blue' },
+  red:    { bg: 'bg-ball-red/8',    border: 'border-ball-red/20',    ring: 'ring-ball-red/30',    text: 'text-ball-red',    avatar: 'bg-ball-red' },
+  orange: { bg: 'bg-ball-orange/8', border: 'border-ball-orange/20', ring: 'ring-ball-orange/30', text: 'text-ball-orange', avatar: 'bg-ball-orange' },
+  green:  { bg: 'bg-ball-green/8',  border: 'border-ball-green/20',  ring: 'ring-ball-green/30',  text: 'text-ball-green',  avatar: 'bg-ball-green' },
+  yellow: { bg: 'bg-ball-yellow/8', border: 'border-ball-yellow/20', ring: 'ring-ball-yellow/30', text: 'text-ball-yellow', avatar: 'bg-ball-yellow' },
+}
+
+const BALL_INITIALS: Record<string, string> = {
+  blue: 'B', red: 'R', orange: 'O', green: 'G', yellow: 'Y',
+}
 
 export default async function ParentDashboard() {
   const supabase = await createClient()
@@ -37,15 +45,12 @@ export default async function ParentDashboard() {
   const familyId = userRole?.family_id
   if (!familyId) {
     return (
-      <div>
-        <PageHeader title="Parent Dashboard" />
-        <div className="mt-6">
-          <EmptyState
-            icon={Users}
-            title="No family account linked"
-            description="This is how parents see their dashboard once invited."
-          />
-        </div>
+      <div className="mt-6">
+        <EmptyState
+          icon={Users}
+          title="No family account linked"
+          description="This is how parents see their dashboard once invited."
+        />
       </div>
     )
   }
@@ -68,6 +73,7 @@ export default async function ParentDashboard() {
 
   const contact = family?.primary_contact as { name?: string; phone?: string; email?: string } | null
   const balanceCents = balance?.balance_cents ?? 0
+  const firstName = contact?.name?.split(' ')[0] ?? 'Parent'
 
   const programIds = enrollments?.map(e => {
     const prog = e.programs as unknown as { id: string } | null
@@ -88,61 +94,84 @@ export default async function ParentDashboard() {
     : { data: null }
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <PageHeader
-          title={`Welcome, ${contact?.name?.split(' ')[0] ?? 'Parent'}`}
-          description={`${family?.family_name} family account`}
-        />
-        <Card className={`border px-4 py-3 text-center ${
-          balanceCents < 0 ? 'border-danger/20 bg-danger-light' :
-          balanceCents > 0 ? 'border-success/20 bg-success-light' :
-          ''
-        }`}>
-          <p className="text-xs font-medium text-muted-foreground">Account Balance</p>
-          <p className={`text-2xl font-bold tabular-nums ${
-            balanceCents < 0 ? 'text-danger' :
-            balanceCents > 0 ? 'text-success' :
-            'text-foreground'
-          }`}>
-            {formatCurrency(balanceCents)}
-          </p>
-        </Card>
+    <div className="space-y-6">
+      {/* ── Hero Banner ── */}
+      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#2B5EA7] via-[#6480A4] to-[#E87450] p-5 text-white shadow-elevated">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-white/80">Welcome back</p>
+            <h1 className="text-2xl font-bold">{firstName}</h1>
+            <p className="mt-0.5 text-sm text-white/70">{family?.family_name} family</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-medium text-white/70">Balance</p>
+            <p className={`text-2xl font-bold tabular-nums ${
+              balanceCents < 0 ? 'text-red-200' :
+              balanceCents > 0 ? 'text-emerald-200' :
+              'text-white'
+            }`}>
+              {formatCurrency(balanceCents)}
+            </p>
+            {balanceCents < 0 && (
+              <Link href="/parent/payments" className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30">
+                Pay now <ChevronRight className="size-3" />
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Players */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground">Your Players</h2>
+      {/* ── Players ── */}
+      <section className="animate-fade-up" style={{ animationDelay: '80ms' }}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Your Players</h2>
+          <span className="text-xs text-muted-foreground">{players?.length ?? 0} player{(players?.length ?? 0) !== 1 ? 's' : ''}</span>
+        </div>
 
         {players && players.length > 0 ? (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {players.map((player) => (
-              <Link
-                key={player.id}
-                href={`/parent/players/${player.id}`}
-                className="block rounded-lg border border-border bg-card p-4 shadow-card transition-all hover:border-primary/30 hover:shadow-elevated"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-foreground">
-                      {player.first_name} {player.last_name}
-                    </p>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      {player.ball_color && <BallLevelBadge ballColor={player.ball_color} />}
-                      {player.level && (
-                        <span className="text-xs text-muted-foreground capitalize">{player.level}</span>
+            {players.map((player, i) => {
+              const colors = BALL_COLORS[player.ball_color?.toLowerCase() ?? ''] ?? BALL_COLORS.blue
+              const initial = player.first_name?.[0]?.toUpperCase() ?? '?'
+
+              return (
+                <Link
+                  key={player.id}
+                  href={`/parent/players/${player.id}`}
+                  className={`group relative block overflow-hidden rounded-xl border ${colors.border} ${colors.bg} p-4 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01]`}
+                  style={{ animationDelay: `${(i + 1) * 80}ms` }}
+                >
+                  {/* Color accent bar */}
+                  <div className={`absolute left-0 top-0 h-full w-1 ${colors.avatar}`} />
+
+                  <div className="flex items-center gap-3 pl-2">
+                    {/* Avatar */}
+                    <div className={`flex size-10 shrink-0 items-center justify-center rounded-full ${colors.avatar} text-white font-bold text-sm shadow-sm`}>
+                      {initial}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-foreground truncate">
+                          {player.first_name} {player.last_name}
+                        </p>
+                        <StatusBadge status={player.status} />
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        {player.ball_color && <BallLevelBadge ballColor={player.ball_color} />}
+                      </div>
+                      {player.current_focus && (player.current_focus as string[]).length > 0 && (
+                        <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <TrendingUp className="size-3 shrink-0" />
+                          <span className="truncate">{(player.current_focus as string[]).join(', ')}</span>
+                        </div>
                       )}
                     </div>
-                    {player.current_focus && (player.current_focus as string[]).length > 0 && (
-                      <p className="mt-1.5 text-xs text-muted-foreground">
-                        Focus: {(player.current_focus as string[]).join(', ')}
-                      </p>
-                    )}
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
                   </div>
-                  <StatusBadge status={player.status} />
-                </div>
-              </Link>
-            ))}
+                </Link>
+              )
+            })}
           </div>
         ) : (
           <div className="mt-3">
@@ -150,17 +179,23 @@ export default async function ParentDashboard() {
               icon={Users}
               title="No players yet"
               description="No players linked to your account yet."
+              compact
             />
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Upcoming Sessions */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground">Upcoming Sessions</h2>
+      {/* ── Upcoming Sessions ── */}
+      <section className="animate-fade-up" style={{ animationDelay: '160ms' }}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Upcoming Sessions</h2>
+          {upcomingSessions && upcomingSessions.length > 0 && (
+            <span className="text-xs text-muted-foreground">Next {upcomingSessions.length}</span>
+          )}
+        </div>
 
         {upcomingSessions && upcomingSessions.length > 0 ? (
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card shadow-card">
+          <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card shadow-card">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -196,13 +231,14 @@ export default async function ParentDashboard() {
               icon={Calendar}
               title="No upcoming sessions"
               description="No sessions scheduled yet."
+              compact
             />
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Enrolled Programs — Weekly Calendar */}
-      <div className="mt-8">
+      {/* ── Weekly Schedule ── */}
+      <section className="animate-fade-up" style={{ animationDelay: '240ms' }}>
         <h2 className="text-lg font-semibold text-foreground">Weekly Schedule</h2>
         <p className="mt-1 text-sm text-muted-foreground">Your enrolled sessions at a glance.</p>
 
@@ -235,10 +271,11 @@ export default async function ParentDashboard() {
               icon={GraduationCap}
               title="No enrolments"
               description="No program enrolments yet."
+              compact
             />
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

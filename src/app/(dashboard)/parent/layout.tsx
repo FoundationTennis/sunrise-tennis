@@ -1,6 +1,7 @@
 'use client'
 
 import { NavTabs } from '@/components/nav-tabs'
+import { MobileBottomNav } from '@/components/mobile-bottom-nav'
 import {
   LayoutDashboard,
   GraduationCap,
@@ -19,9 +20,14 @@ const navItems = [
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div>
-      <NavTabs items={navItems} />
+    <div className="pb-20 md:pb-0">
+      {/* Desktop: top tabs */}
+      <div className="hidden md:block">
+        <NavTabs items={navItems} />
+      </div>
       {children}
+      {/* Mobile: bottom nav */}
+      <MobileBottomNav items={navItems} />
     </div>
   )
 }
