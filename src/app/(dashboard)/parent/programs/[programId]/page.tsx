@@ -74,13 +74,13 @@ export default async function ParentProgramDetailPage({
       />
 
       {error && (
-        <div className="mt-4 flex items-center gap-2 rounded-lg border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
+        <div className="mt-4 flex items-center gap-2 rounded-lg bg-[#C53030] px-4 py-3.5 text-sm font-medium text-white shadow-sm">
           <AlertCircle className="size-4 shrink-0" />
           {error}
         </div>
       )}
       {success && (
-        <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/20 bg-success-light px-4 py-3 text-sm text-success">
+        <div className="mt-4 flex items-center gap-2 rounded-lg bg-[#2D8A4E] px-4 py-3.5 text-sm font-medium text-white shadow-sm">
           <CheckCircle className="size-4 shrink-0" />
           {success}
         </div>

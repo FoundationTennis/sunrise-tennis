@@ -8,26 +8,32 @@ import {
   CreditCard,
   Trophy,
   Settings,
+  CalendarDays,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/parent', label: 'Overview', icon: LayoutDashboard },
   { href: '/parent/programs', label: 'Programs', icon: GraduationCap },
   { href: '/parent/payments', label: 'Payments', icon: CreditCard },
-  { href: '/parent/teams', label: 'Teams', icon: Trophy },
+  { href: '/parent/teams', label: 'Comp', icon: Trophy },
+  { href: '/parent/events', label: 'Events', icon: CalendarDays },
   { href: '/parent/settings', label: 'Settings', icon: Settings },
 ]
+
+// Mobile: show first 4 + "More" overflow containing the rest
+const mobileVisibleItems = navItems.slice(0, 4)
+const mobileOverflowItems = navItems.slice(4)
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="pb-20 md:pb-0">
-      {/* Desktop: top tabs */}
+      {/* Desktop: top tabs — all items */}
       <div className="hidden md:block">
         <NavTabs items={navItems} />
       </div>
       {children}
-      {/* Mobile: bottom nav */}
-      <MobileBottomNav items={navItems} />
+      {/* Mobile: bottom nav with "More" overflow */}
+      <MobileBottomNav items={mobileVisibleItems} overflowItems={mobileOverflowItems} />
     </div>
   )
 }

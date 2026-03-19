@@ -68,7 +68,7 @@ export default async function ParentTeamsPage() {
 
   return (
     <div>
-      <PageHeader title="Teams" description="Your children's competition teams." />
+      <PageHeader title="Competition" description="Your children's competition teams." />
 
       {teams.length > 0 ? (
         <div className="mt-6 space-y-4">

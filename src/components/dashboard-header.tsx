@@ -47,7 +47,7 @@ export function DashboardHeader() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#D06440]/30 bg-gradient-to-r from-[#2B5EA7] via-[#6480A4] to-[#E87450]">
+    <header className="sticky top-0 z-40 border-b border-[#D06440]/30 bg-gradient-to-r from-[#E87450] via-[#6480A4] to-[#2B5EA7]">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <Link

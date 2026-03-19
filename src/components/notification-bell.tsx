@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { Bell } from 'lucide-react'
+import { Bell, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
 
@@ -79,6 +79,26 @@ export function NotificationBell() {
     setOpen(false)
   }
 
+  async function markSingleRead(recipientId: string) {
+    await supabase
+      .from('notification_recipients')
+      .update({ read_at: new Date().toISOString() })
+      .eq('id', recipientId)
+
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === recipientId ? { ...n, read_at: new Date().toISOString() } : n)),
+    )
+  }
+
+  async function deleteNotification(recipientId: string) {
+    await supabase
+      .from('notification_recipients')
+      .delete()
+      .eq('id', recipientId)
+
+    setNotifications((prev) => prev.filter((n) => n.id !== recipientId))
+  }
+
   async function markAllRead() {
     const unread = notifications.filter((n) => !n.read_at)
     await Promise.all(
@@ -114,7 +134,7 @@ export function NotificationBell() {
       </Button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 rounded-lg border border-border bg-card shadow-elevated">
+        <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-border bg-card shadow-elevated">
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
             {unreadCount > 0 && (
@@ -131,29 +151,61 @@ export function NotificationBell() {
               <p className="px-4 py-6 text-center text-sm text-muted-foreground">No notifications yet</p>
             ) : (
               notifications.map((n) => (
-                <button
+                <div
                   key={n.id}
-                  onClick={() => markAsRead(n.id, n.notification?.url)}
                   className={cn(
-                    'block w-full px-4 py-3 text-left transition-colors hover:bg-muted/50',
-                    !n.read_at && 'bg-primary/5'
+                    'group relative flex items-start gap-2.5 px-3 py-3 transition-colors',
+                    !n.read_at
+                      ? 'border-l-2 border-l-primary bg-primary/5'
+                      : 'border-l-2 border-l-transparent hover:bg-muted/30'
                   )}
                 >
-                  <p className={cn(
-                    'text-sm',
-                    !n.read_at ? 'font-semibold text-foreground' : 'text-muted-foreground'
-                  )}>
-                    {n.notification?.title}
-                  </p>
-                  {n.notification?.body && (
-                    <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{n.notification.body}</p>
+                  {/* Unread dot */}
+                  {!n.read_at && (
+                    <div className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
                   )}
-                  {n.created_at && (
-                    <p className="mt-1 text-[10px] text-muted-foreground/60">
-                      {new Date(n.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+
+                  {/* Content — clickable to navigate */}
+                  <button
+                    onClick={() => markAsRead(n.id, n.notification?.url)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className={cn(
+                      'text-sm leading-snug',
+                      !n.read_at ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                    )}>
+                      {n.notification?.title}
                     </p>
-                  )}
-                </button>
+                    {n.notification?.body && (
+                      <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{n.notification.body}</p>
+                    )}
+                    {n.created_at && (
+                      <p className="mt-1 text-[10px] text-muted-foreground/60">
+                        {new Date(n.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                  </button>
+
+                  {/* Action icons */}
+                  <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
+                    {!n.read_at && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); markSingleRead(n.id) }}
+                        className="rounded p-1 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                        title="Mark as read"
+                      >
+                        <Check className="size-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteNotification(n.id) }}
+                      className="rounded p-1 text-muted-foreground/50 transition-colors hover:bg-danger-light hover:text-danger"
+                      title="Remove"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
               ))
             )}
           </div>

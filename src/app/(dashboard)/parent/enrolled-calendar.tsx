@@ -69,6 +69,7 @@ export function EnrolledCalendar({
   playerOrder: string[]
 }) {
   const [colorMode, setColorMode] = useState<ColorMode>('player')
+  const [hiddenPlayers, setHiddenPlayers] = useState<Set<string>>(new Set())
 
   // Use the canonical player order (from sorted players array) for consistent colors
   const playerColorMap = new Map<string, string>()
@@ -106,7 +107,12 @@ export function EnrolledCalendar({
     }
   })
 
-  if (events.length === 0) {
+  // Filter out events where ALL players are hidden
+  const visibleEvents = colorMode === 'player'
+    ? events.filter(e => !e.playerNames || !e.playerNames.every(n => hiddenPlayers.has(n)))
+    : events
+
+  if (visibleEvents.length === 0 && events.length === 0) {
     return (
       <p className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
         No scheduled sessions to display.
@@ -142,7 +148,35 @@ export function EnrolledCalendar({
         </button>
       </div>
 
-      <WeeklyCalendar events={events} />
+      {/* Player toggle pills — only shown in "By player" mode */}
+      {colorMode === 'player' && playerOrder.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {playerOrder.map((name, i) => {
+            const hidden = hiddenPlayers.has(name)
+            const color = PLAYER_PALETTE[i % PLAYER_PALETTE.length]
+            return (
+              <button
+                key={name}
+                onClick={() => {
+                  setHiddenPlayers(prev => {
+                    const next = new Set(prev)
+                    if (next.has(name)) next.delete(name)
+                    else next.add(name)
+                    return next
+                  })
+                }}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${color} ${
+                  hidden ? 'opacity-30 grayscale' : ''
+                }`}
+              >
+                {name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      <WeeklyCalendar events={visibleEvents} />
     </div>
   )
 }

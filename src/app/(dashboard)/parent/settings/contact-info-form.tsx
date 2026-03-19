@@ -9,11 +9,9 @@ import { Card, CardContent } from '@/components/ui/card'
 export function ContactInfoForm({
   primaryContact,
   secondaryContact,
-  address,
 }: {
   primaryContact: { name?: string; phone?: string; email?: string } | null
   secondaryContact: { name?: string; phone?: string; email?: string } | null
-  address: string | null
 }) {
   return (
     <form action={updateContactInfo}>
@@ -55,11 +53,6 @@ export function ContactInfoForm({
                 <Input id="secondary_email" name="secondary_email" type="email" defaultValue={secondaryContact?.email ?? ''} className="mt-1" />
               </div>
             </div>
-          </div>
-
-          <div className="mt-6">
-            <Label htmlFor="address" className="text-xs">Address</Label>
-            <Input id="address" name="address" type="text" defaultValue={address ?? ''} className="mt-1" />
           </div>
 
           <div className="mt-6 flex justify-end">

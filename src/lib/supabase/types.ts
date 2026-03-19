@@ -242,6 +242,68 @@ export type Database = {
           },
         ]
       }
+      club_events: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          event_type: string
+          location: string | null
+          start_date: string
+          end_date: string | null
+          start_time: string | null
+          end_time: string | null
+          all_day: boolean
+          external_url: string | null
+          status: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          event_type?: string
+          location?: string | null
+          start_date: string
+          end_date?: string | null
+          start_time?: string | null
+          end_time?: string | null
+          all_day?: boolean
+          external_url?: string | null
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          event_type?: string
+          location?: string | null
+          start_date?: string
+          end_date?: string | null
+          start_time?: string | null
+          end_time?: string | null
+          all_day?: boolean
+          external_url?: string | null
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coaches: {
         Row: {
           created_at: string | null

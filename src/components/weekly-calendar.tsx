@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, X, ExternalLink, Clock, Users, Tag } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { getTermInfo } from '@/lib/utils/school-terms'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const DAY_MAP: Record<number, number> = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6 }
@@ -133,16 +134,24 @@ export function WeeklyCalendar({
         >
           <ChevronLeft className="size-4" />
         </button>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-foreground">{formatWeekRange(monday)}</span>
-          {weekOffset !== 0 && (
-            <button
-              onClick={() => setWeekOffset(0)}
-              className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20"
-            >
-              Today
-            </button>
-          )}
+        <div className="flex flex-col items-center gap-0.5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-foreground">{formatWeekRange(monday)}</span>
+            {weekOffset !== 0 && (
+              <button
+                onClick={() => setWeekOffset(0)}
+                className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20"
+              >
+                Today
+              </button>
+            )}
+          </div>
+          {(() => {
+            const term = getTermInfo(monday)
+            return term ? (
+              <span className="text-[11px] font-medium text-muted-foreground">{term}</span>
+            ) : null
+          })()}
         </div>
         <button
           onClick={() => setWeekOffset(o => o + 1)}

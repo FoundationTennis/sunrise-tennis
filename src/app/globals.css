@@ -232,11 +232,11 @@
 .gradient-stripe {
   background: linear-gradient(
     90deg,
-    #2B5EA7 0%,
-    #8B78B0 25%,
+    #F7CD5D 0%,
+    #F5B041 25%,
     #E87450 50%,
-    #F5B041 75%,
-    #F7CD5D 100%
+    #8B78B0 75%,
+    #2B5EA7 100%
   );
 }
 
