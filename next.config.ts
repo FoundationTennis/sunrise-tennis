@@ -30,22 +30,7 @@ const nextConfig: NextConfig = {
             key: "X-DNS-Prefetch-Control",
             value: "on",
           },
-          {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.supabase.co",
-              "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://connect.squareup.com https://connect.squareupsandbox.com https://pep.squarecdn.com",
-              "frame-src https://www.youtube.com https://youtube-nocookie.com https://pep.squarecdn.com",
-              "object-src 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-              "frame-ancestors 'none'",
-            ].join("; "),
-          },
+          // CSP is set dynamically in middleware.ts (nonce-based)
         ],
       },
     ];

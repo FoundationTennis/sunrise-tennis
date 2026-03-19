@@ -100,6 +100,9 @@ export function ParentPlayerEditForm({
             <div className="sm:col-span-2">
               <Label htmlFor="medical_notes">Medical notes</Label>
               <Textarea id="medical_notes" name="medical_notes" rows={2} defaultValue={player.medical_notes ?? ''} placeholder="Allergies, injuries, conditions..." className="mt-1" />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Medical information is shared voluntarily for player safety during coaching. It is encrypted at rest and accessible only to authorised coaches and family members.
+              </p>
             </div>
           </div>
           <div className="flex gap-2 justify-end">

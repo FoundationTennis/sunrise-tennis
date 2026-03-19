@@ -11,6 +11,12 @@ export async function sendNotification(formData: FormData) {
   const user = await requireAdmin()
   const supabase = await createClient()
 
+  // Rate limit: 10 notifications per minute per admin
+  const { checkRateLimitAsync } = await import('@/lib/utils/rate-limit')
+  if (!await checkRateLimitAsync(`notify:${user.id}`, 10, 60_000)) {
+    redirect('/admin/notifications/compose?error=' + encodeURIComponent('Too many notifications. Please wait a moment.'))
+  }
+
   const parsed = validateFormData(formData, sendNotificationFormSchema)
   if (!parsed.success) {
     redirect('/admin/notifications/compose?error=' + encodeURIComponent(parsed.error))

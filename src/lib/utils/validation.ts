@@ -95,6 +95,7 @@ export const signupFormSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters').max(200),
   full_name: requiredString('Full name is required'),
   invite_token: optionalString(),
+  accepted_terms: z.literal('on', { message: 'You must accept the Privacy Policy and Terms of Service' }),
 })
 
 export const magicLinkFormSchema = z.object({

@@ -28,6 +28,14 @@ export default function Home() {
         <p className="mt-8 text-xs text-muted-foreground">
           Somerton Park Tennis Club — Adelaide, SA
         </p>
+        <div className="mt-2 flex justify-center gap-3 text-xs">
+          <Link href="/privacy" className="text-muted-foreground/60 transition-colors hover:text-primary">
+            Privacy
+          </Link>
+          <Link href="/terms" className="text-muted-foreground/60 transition-colors hover:text-primary">
+            Terms
+          </Link>
+        </div>
       </div>
     </div>
   )

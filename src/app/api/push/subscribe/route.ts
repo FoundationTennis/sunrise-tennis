@@ -9,6 +9,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Rate limit: 5 subscription updates per minute per user
+  const { checkRateLimitAsync } = await import('@/lib/utils/rate-limit')
+  if (!await checkRateLimitAsync(`push:${user.id}`, 5, 60_000)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const { endpoint, keys } = await request.json()
 
   if (!endpoint || !keys?.p256dh || !keys?.auth) {

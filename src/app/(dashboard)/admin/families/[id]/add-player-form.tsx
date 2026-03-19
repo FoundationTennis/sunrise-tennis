@@ -50,6 +50,9 @@ export function AddPlayerForm({ familyId }: { familyId: string }) {
         <div className="sm:col-span-2">
           <Label htmlFor="medical_notes">Medical notes</Label>
           <Textarea id="medical_notes" name="medical_notes" rows={2} className="mt-1" placeholder="Allergies, injuries, conditions..." />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Medical information is shared voluntarily for player safety during coaching. It is encrypted at rest and accessible only to authorised coaches and family members.
+          </p>
         </div>
         <div className="sm:col-span-2">
           <Button type="submit">Add player</Button>

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { validateFormData, loginFormSchema, signupFormSchema, magicLinkFormSchema } from '@/lib/utils/validation'
-import { checkRateLimit } from '@/lib/utils/rate-limit'
+import { checkRateLimitAsync } from '@/lib/utils/rate-limit'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
@@ -15,7 +15,7 @@ export async function login(formData: FormData) {
   }
 
   // Rate limit: 5 login attempts per minute per email
-  if (!checkRateLimit(`login:${parsed.data.email}`, 5, 60_000)) {
+  if (!await checkRateLimitAsync(`login:${parsed.data.email}`, 5, 60_000)) {
     redirect('/login?error=' + encodeURIComponent('Too many login attempts. Please wait a minute.'))
   }
 
@@ -63,7 +63,7 @@ export async function signup(formData: FormData) {
   const { email, password, full_name: fullName, invite_token: inviteToken } = parsed.data
 
   // Rate limit: 3 signup attempts per minute per email
-  if (!checkRateLimit(`signup:${email}`, 3, 60_000)) {
+  if (!await checkRateLimitAsync(`signup:${email}`, 3, 60_000)) {
     redirect('/signup?error=' + encodeURIComponent('Too many signup attempts. Please wait a minute.'))
   }
 
@@ -73,6 +73,8 @@ export async function signup(formData: FormData) {
     options: {
       data: {
         full_name: fullName,
+        accepted_terms: true,
+        accepted_terms_at: new Date().toISOString(),
         ...(inviteToken ? { invite_token: inviteToken } : {}),
       },
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,

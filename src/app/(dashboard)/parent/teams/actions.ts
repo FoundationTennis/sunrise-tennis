@@ -79,6 +79,12 @@ export async function sendTeamMessage(teamId: string, formData: FormData) {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
+  // Rate limit: 10 messages per minute per user
+  const { checkRateLimitAsync } = await import('@/lib/utils/rate-limit')
+  if (!await checkRateLimitAsync(`msg:${user.id}`, 10, 60_000)) {
+    redirect(`/parent/teams/${teamId}/chat?error=${encodeURIComponent('Sending too fast. Please wait a moment.')}`)
+  }
+
   const parsed = validateFormData(formData, teamMessageFormSchema)
   if (!parsed.success) return
 

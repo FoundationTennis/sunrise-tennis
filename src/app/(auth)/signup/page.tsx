@@ -71,6 +71,26 @@ function SignupForm() {
           />
         </div>
 
+        <div className="flex items-start gap-2.5">
+          <input
+            id="accepted_terms"
+            name="accepted_terms"
+            type="checkbox"
+            required
+            className="mt-0.5 size-4 rounded border-border text-primary focus:ring-primary"
+          />
+          <Label htmlFor="accepted_terms" className="cursor-pointer text-xs leading-relaxed text-muted-foreground">
+            I agree to the{' '}
+            <Link href="/privacy" target="_blank" className="text-primary hover:text-primary/80 underline">
+              Privacy Policy
+            </Link>{' '}
+            and{' '}
+            <Link href="/terms" target="_blank" className="text-primary hover:text-primary/80 underline">
+              Terms of Service
+            </Link>
+          </Label>
+        </div>
+
         <Button type="submit" className="w-full">
           Create account
         </Button>

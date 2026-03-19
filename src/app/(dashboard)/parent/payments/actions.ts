@@ -10,6 +10,12 @@ export async function submitVoucher(formData: FormData) {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
+  // Rate limit: 3 voucher submissions per minute per user
+  const { checkRateLimitAsync } = await import('@/lib/utils/rate-limit')
+  if (!await checkRateLimitAsync(`voucher:${user.id}`, 3, 60_000)) {
+    redirect('/parent/payments?error=' + encodeURIComponent('Too many attempts. Please wait a moment.'))
+  }
+
   const { data: userRole } = await supabase
     .from('user_roles')
     .select('family_id')

@@ -11,6 +11,14 @@ export async function createLessonNote(sessionId: string, formData: FormData) {
   const supabase = await createClient()
   const user = await getSessionUser()
 
+  // Rate limit: 20 lesson notes per minute per user
+  if (user) {
+    const { checkRateLimitAsync } = await import('@/lib/utils/rate-limit')
+    if (!await checkRateLimitAsync(`note:${user.id}`, 20, 60_000)) {
+      redirect(`/coach/schedule/${sessionId}?error=${encodeURIComponent('Too many requests. Please wait a moment.')}`)
+    }
+  }
+
   // Get coach_id directly from coaches table (works for admin+coach users)
   const { data: coachRecord } = await supabase
     .from('coaches')
