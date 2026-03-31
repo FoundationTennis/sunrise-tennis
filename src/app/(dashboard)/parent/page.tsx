@@ -43,6 +43,7 @@ export default async function ParentDashboard() {
     { data: balance },
     { data: enrollments },
     { data: upcomingEvents },
+    { data: privateBookings },
   ] = await Promise.all([
     supabase.from('families').select('*').eq('id', familyId).single(),
     supabase.from('players').select('*').eq('family_id', familyId).order('first_name'),
@@ -59,6 +60,13 @@ export default async function ParentDashboard() {
       .in('status', ['upcoming', 'in_progress'])
       .order('start_date', { ascending: true })
       .limit(4),
+    supabase
+      .from('bookings')
+      .select('id, player_id, duration_minutes, sessions:session_id(date, start_time, end_time, status, coaches:coach_id(name)), players:player_id(first_name)')
+      .eq('family_id', familyId)
+      .eq('booking_type', 'private')
+      .in('status', ['confirmed', 'pending'])
+      .limit(20),
   ])
 
   const contact = family?.primary_contact as { name?: string; phone?: string; email?: string } | null
@@ -186,28 +194,46 @@ export default async function ParentDashboard() {
           Weekly Schedule
         </h2>
 
-        {enrollments && enrollments.length > 0 ? (
+        {(enrollments && enrollments.length > 0) || (privateBookings && privateBookings.length > 0) ? (
           <div className="mt-3">
             <EnrolledCalendar
               playerOrder={players?.map(p => p.first_name) ?? []}
-              enrollments={enrollments.map((enrollment) => {
-                const program = enrollment.programs as unknown as {
-                  id: string; name: string; type: string; level: string;
-                  day_of_week: number | null; start_time: string | null; end_time: string | null; status: string
-                } | null
-                const enrolledPlayer = enrollment.players as unknown as { id: string; first_name: string } | null
-                return {
-                  id: enrollment.id,
-                  playerName: enrolledPlayer?.first_name ?? '',
-                  programId: program?.id ?? '',
-                  programName: program?.name ?? '',
-                  programType: program?.type ?? '',
-                  programLevel: program?.level ?? null,
-                  dayOfWeek: program?.day_of_week ?? null,
-                  startTime: program?.start_time ?? null,
-                  endTime: program?.end_time ?? null,
-                }
-              })}
+              enrollments={[
+                ...(enrollments ?? []).map((enrollment) => {
+                  const program = enrollment.programs as unknown as {
+                    id: string; name: string; type: string; level: string;
+                    day_of_week: number | null; start_time: string | null; end_time: string | null; status: string
+                  } | null
+                  const enrolledPlayer = enrollment.players as unknown as { id: string; first_name: string } | null
+                  return {
+                    id: enrollment.id,
+                    playerName: enrolledPlayer?.first_name ?? '',
+                    programId: program?.id ?? '',
+                    programName: program?.name ?? '',
+                    programType: program?.type ?? '',
+                    programLevel: program?.level ?? null,
+                    dayOfWeek: program?.day_of_week ?? null,
+                    startTime: program?.start_time ?? null,
+                    endTime: program?.end_time ?? null,
+                  }
+                }),
+                ...(privateBookings ?? []).map((b) => {
+                  const session = b.sessions as unknown as { date: string; start_time: string; end_time: string; coaches: { name: string } | null } | null
+                  const player = b.players as unknown as { first_name: string } | null
+                  const dayOfWeek = session?.date ? new Date(session.date + 'T12:00:00').getDay() : null
+                  return {
+                    id: b.id,
+                    playerName: player?.first_name ?? '',
+                    programId: '',
+                    programName: `Private - ${session?.coaches?.name ?? 'Coach'}`,
+                    programType: 'private' as string,
+                    programLevel: null,
+                    dayOfWeek,
+                    startTime: session?.start_time ?? null,
+                    endTime: session?.end_time ?? null,
+                  }
+                }),
+              ]}
             />
           </div>
         ) : (

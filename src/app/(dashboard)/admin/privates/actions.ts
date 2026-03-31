@@ -211,3 +211,114 @@ export async function recordCoachPayment(formData: FormData) {
   revalidatePath('/admin/privates/earnings')
   redirect('/admin/privates/earnings?success=Payment+recorded')
 }
+
+// ── Admin: Book Private on Behalf ──────────────────────────────────────
+
+export async function adminBookPrivate(formData: FormData) {
+  const user = await requireAdmin()
+  const supabase = await createClient()
+
+  const familyId = formData.get('family_id') as string
+  const coachId = formData.get('coach_id') as string
+  const playerName = (formData.get('player_name') as string)?.trim()
+  const date = formData.get('date') as string
+  const startTime = formData.get('start_time') as string
+  const durationMinutes = parseInt(formData.get('duration_minutes') as string)
+
+  if (!familyId || !coachId || !playerName || !date || !startTime || !durationMinutes) {
+    redirect('/admin/privates/bookings?error=All+fields+are+required')
+  }
+
+  // Find the player by name in this family
+  const { data: player } = await supabase
+    .from('players')
+    .select('id, first_name')
+    .eq('family_id', familyId)
+    .ilike('first_name', playerName)
+    .single()
+
+  if (!player) {
+    redirect(`/admin/privates/bookings?error=${encodeURIComponent(`Player "${playerName}" not found in this family`)}`)
+  }
+
+  // Get coach name
+  const { data: coach } = await supabase
+    .from('coaches')
+    .select('name')
+    .eq('id', coachId)
+    .single()
+
+  // Calculate price
+  const { getPrivatePrice } = await import('@/lib/utils/private-booking')
+  const priceCents = await getPrivatePrice(supabase, coachId, durationMinutes)
+
+  // Calculate end time
+  const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1])
+  const endMinutes = startMinutes + durationMinutes
+  const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
+
+  // Create session
+  const { data: session, error: sessionError } = await supabase
+    .from('sessions')
+    .insert({
+      session_type: 'private',
+      date,
+      start_time: startTime,
+      end_time: endTime,
+      coach_id: coachId,
+      status: 'scheduled',
+      duration_minutes: durationMinutes,
+    })
+    .select('id')
+    .single()
+
+  if (sessionError || !session) {
+    redirect(`/admin/privates/bookings?error=${encodeURIComponent('Failed to create session')}`)
+  }
+
+  // Create booking (auto-confirmed since admin is booking)
+  const { getSessionUser } = await import('@/lib/supabase/server')
+  const adminUser = await getSessionUser()
+
+  const { data: booking, error: bookingError } = await supabase
+    .from('bookings')
+    .insert({
+      family_id: familyId,
+      player_id: player.id,
+      session_id: session.id,
+      booking_type: 'private',
+      status: 'confirmed',
+      approval_status: 'approved',
+      auto_approved: true,
+      approved_by: adminUser?.id ?? null,
+      approved_at: new Date().toISOString(),
+      price_cents: priceCents,
+      duration_minutes: durationMinutes,
+      booked_by: adminUser?.id ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (bookingError || !booking) {
+    await supabase.from('sessions').delete().eq('id', session.id)
+    redirect(`/admin/privates/bookings?error=${encodeURIComponent('Failed to create booking')}`)
+  }
+
+  // Create charge
+  const { createCharge } = await import('@/lib/utils/billing')
+  await createCharge(supabase, {
+    familyId,
+    playerId: player.id,
+    type: 'private',
+    sourceType: 'enrollment',
+    sessionId: session.id,
+    bookingId: booking.id,
+    description: `Private lesson with ${coach?.name ?? 'coach'} - ${date}`,
+    amountCents: priceCents,
+    status: 'confirmed',
+    createdBy: adminUser?.id ?? null,
+  })
+
+  revalidatePath('/admin/privates/bookings')
+  redirect('/admin/privates/bookings?success=Private+lesson+booked')
+}

@@ -99,7 +99,14 @@ export default async function CoachSchedulePage({
                         {formatDate(session.date)}
                       </Link>
                     </TableCell>
-                    <TableCell>{program?.name ?? session.session_type}</TableCell>
+                    <TableCell>
+                      {program?.name ?? session.session_type}
+                      {session.session_type === 'private' && (
+                        <span className="ml-1.5 inline-flex items-center rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
+                          Private
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {session.start_time ? formatTime(session.start_time) : '-'}
                       {session.end_time ? ` - ${formatTime(session.end_time)}` : ''}
