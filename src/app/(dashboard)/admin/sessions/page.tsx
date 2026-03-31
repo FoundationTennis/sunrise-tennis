@@ -15,14 +15,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Calendar, AlertCircle } from 'lucide-react'
+import { Calendar, AlertCircle, CheckCircle } from 'lucide-react'
+import { GenerateTermSessionsForm } from './generate-term-sessions-form'
 
 export default async function AdminSessionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; filter?: string }>
+  searchParams: Promise<{ error?: string; success?: string; filter?: string }>
 }) {
-  const { error, filter } = await searchParams
+  const { error, success, filter } = await searchParams
   const supabase = await createClient()
 
   const today = new Date().toISOString().split('T')[0]
@@ -67,6 +68,12 @@ export default async function AdminSessionsPage({
         <div className="mt-4 flex items-center gap-2 rounded-lg border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
           <AlertCircle className="size-4 shrink-0" />
           {error}
+        </div>
+      )}
+      {success && (
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/20 bg-success-light px-4 py-3 text-sm text-success">
+          <CheckCircle className="size-4 shrink-0" />
+          {success}
         </div>
       )}
 
@@ -121,8 +128,13 @@ export default async function AdminSessionsPage({
         </div>
       )}
 
-      {/* Create session form */}
+      {/* Generate term sessions */}
       <div className="mt-8">
+        <GenerateTermSessionsForm />
+      </div>
+
+      {/* Create session form */}
+      <div className="mt-4">
         <Suspense>
           <CreateSessionForm
             programs={programs ?? []}

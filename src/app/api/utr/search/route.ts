@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionUser } from '@/lib/supabase/server'
+import { searchUTRPlayers } from '@/lib/utils/utr'
 
 export async function GET(request: NextRequest) {
   const user = await getSessionUser()
@@ -19,34 +20,15 @@ export async function GET(request: NextRequest) {
 
   const top = Math.min(parseInt(request.nextUrl.searchParams.get('top') ?? '5', 10), 10)
 
+  if (!process.env.UTR_API_EMAIL || !process.env.UTR_API_PASSWORD) {
+    return NextResponse.json({ error: 'UTR integration not configured. Add UTR_API_EMAIL and UTR_API_PASSWORD environment variables.' }, { status: 503 })
+  }
+
   try {
-    const res = await fetch(
-      `https://api.universaltennis.com/v2/search/players?query=${encodeURIComponent(q)}&top=${top}`,
-      { headers: { 'Accept': 'application/json' }, next: { revalidate: 300 } },
-    )
-
-    if (!res.ok) {
-      return NextResponse.json({ error: 'UTR API error' }, { status: 502 })
-    }
-
-    const data = await res.json()
-
-    const results = (data.hits ?? []).map((hit: Record<string, unknown>) => {
-      const s = hit.source as Record<string, unknown>
-      const loc = s.location as Record<string, unknown> | null
-      return {
-        id: String(s.id),
-        displayName: s.displayName ?? '',
-        ageRange: s.ageRange ?? null,
-        location: loc?.display ?? null,
-        threeMonthRating: s.threeMonthRating ?? null,
-        singlesUtrDisplay: s.singlesUtrDisplay ?? null,
-        ratingStatusSingles: s.ratingStatusSingles ?? null,
-      }
-    })
-
+    const results = await searchUTRPlayers(q, top)
     return NextResponse.json({ results })
-  } catch {
-    return NextResponse.json({ error: 'Failed to reach UTR' }, { status: 502 })
+  } catch (e) {
+    console.error('UTR search error:', e instanceof Error ? e.message : 'Unknown error')
+    return NextResponse.json({ error: 'UTR search failed' }, { status: 502 })
   }
 }

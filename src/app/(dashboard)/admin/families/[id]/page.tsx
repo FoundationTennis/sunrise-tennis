@@ -27,6 +27,8 @@ export default async function FamilyDetailPage({ params }: { params: Promise<{ i
   if (!family) notFound()
 
   const contact = family.primary_contact as { name?: string; phone?: string; email?: string } | null
+  const secondaryContact = family.secondary_contact as { name?: string; role?: string; phone?: string; email?: string } | null
+  const billingPrefs = family.billing_prefs as { payment_method?: string; invoice_pref?: string; rate?: string; package_type?: string } | null
 
   return (
     <div className="max-w-3xl">
@@ -83,6 +85,64 @@ export default async function FamilyDetailPage({ params }: { params: Promise<{ i
                 <dd className="text-sm text-foreground">{family.created_at ? formatDate(family.created_at) : '-'}</dd>
               </div>
             </dl>
+
+            {/* Secondary contact */}
+            {secondaryContact && (secondaryContact.name || secondaryContact.phone || secondaryContact.email) && (
+              <>
+                <h3 className="mt-6 text-sm font-semibold text-foreground">Secondary Contact</h3>
+                <dl className="mt-2 grid gap-3 sm:grid-cols-2">
+                  {secondaryContact.name && (
+                    <div>
+                      <dt className="text-xs font-medium text-muted-foreground">
+                        Name{secondaryContact.role ? ` (${secondaryContact.role})` : ''}
+                      </dt>
+                      <dd className="text-sm text-foreground">{secondaryContact.name}</dd>
+                    </div>
+                  )}
+                  {secondaryContact.phone && (
+                    <div>
+                      <dt className="text-xs font-medium text-muted-foreground">Phone</dt>
+                      <dd className="text-sm text-foreground">{secondaryContact.phone}</dd>
+                    </div>
+                  )}
+                  {secondaryContact.email && (
+                    <div>
+                      <dt className="text-xs font-medium text-muted-foreground">Email</dt>
+                      <dd className="text-sm text-foreground">{secondaryContact.email}</dd>
+                    </div>
+                  )}
+                </dl>
+              </>
+            )}
+
+            {/* Billing preferences */}
+            {billingPrefs && (billingPrefs.payment_method || billingPrefs.package_type) && (
+              <>
+                <h3 className="mt-6 text-sm font-semibold text-foreground">Billing Preferences</h3>
+                <dl className="mt-2 grid gap-3 sm:grid-cols-2">
+                  {billingPrefs.payment_method && (
+                    <div>
+                      <dt className="text-xs font-medium text-muted-foreground">Payment Method</dt>
+                      <dd className="text-sm capitalize text-foreground">{billingPrefs.payment_method}</dd>
+                    </div>
+                  )}
+                  {billingPrefs.package_type && (
+                    <div>
+                      <dt className="text-xs font-medium text-muted-foreground">Package Type</dt>
+                      <dd className="text-sm capitalize text-foreground">{billingPrefs.package_type}</dd>
+                    </div>
+                  )}
+                </dl>
+              </>
+            )}
+
+            {/* Notes */}
+            {family.notes && (
+              <>
+                <h3 className="mt-6 text-sm font-semibold text-foreground">Notes</h3>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{family.notes}</p>
+              </>
+            )}
           </CardContent>
         </Card>
 

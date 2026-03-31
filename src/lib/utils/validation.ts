@@ -45,6 +45,7 @@ export const paymentStatusSchema = z.enum(['received', 'pending', 'overdue', 're
 export const userRoleSchema = z.enum(['parent', 'coach', 'admin'])
 export const programTypeSchema = z.enum(['group', 'squad', 'school', 'competition'])
 export const mediaVisibilitySchema = z.enum(['family_only', 'program', 'public'])
+export const genderSchema = z.enum(['male', 'female', 'non_binary'])
 
 // ── Object Schemas (for API-style payloads) ─────────────────────────────
 
@@ -120,6 +121,10 @@ export const updateFamilyFormSchema = z.object({
   address: optionalString(1000),
   status: familyStatusSchema,
   notes: optionalString(5000),
+  secondary_name: optionalString(),
+  secondary_role: optionalString(),
+  secondary_phone: optionalString(),
+  secondary_email: z.string().email().optional().or(z.literal('')),
 })
 
 // Admin - Players
@@ -135,13 +140,17 @@ export const createPlayerFormSchema = z.object({
 export const updatePlayerFormSchema = z.object({
   first_name: requiredString('First name is required'),
   last_name: requiredString('Last name is required'),
+  preferred_name: optionalString(),
+  gender: genderSchema.optional().or(z.literal('')),
   dob: optionalString(),
   ball_color: ballColorSchema.optional().or(z.literal('')),
   level: ballColorSchema.optional().or(z.literal('')),
   medical_notes: optionalString(5000),
+  physical_notes: optionalString(5000),
   current_focus: optionalString(2000),
   short_term_goal: optionalString(1000),
   long_term_goal: optionalString(1000),
+  comp_interest: z.enum(['yes', 'no', 'future']).optional().or(z.literal('')),
   media_consent: z.string().optional(),
 })
 
@@ -250,8 +259,6 @@ export const updateContactFormSchema = z.object({
   secondary_email: z.string().email().optional().or(z.literal('')),
 })
 
-export const genderSchema = z.enum(['male', 'female', 'non_binary'])
-
 export const updatePlayerDetailsFormSchema = z.object({
   first_name: requiredString('First name is required'),
   last_name: requiredString('Last name is required'),
@@ -298,6 +305,12 @@ export const adminBookPlayerFormSchema = z.object({
   program_id: uuidString('Invalid program'),
   booking_type: bookingTypeSchema,
   notes: optionalString(1000),
+})
+
+// Admin - Generate Term Sessions
+export const generateTermSessionsFormSchema = z.object({
+  term: z.coerce.number().int().min(1).max(4),
+  year: z.coerce.number().int().min(2025).max(2030),
 })
 
 // Charge status/type enums

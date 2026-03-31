@@ -16,6 +16,7 @@ import {
   createSessionFormSchema,
   createInvitationFormSchema,
   attendanceStatusSchema,
+  generateTermSessionsFormSchema,
 } from '@/lib/utils/validation'
 import {
   createCharge,
@@ -107,7 +108,7 @@ export async function updateFamily(id: string, formData: FormData) {
     redirect(`/admin/families/${id}?error=${encodeURIComponent(parsed.error)}`)
   }
 
-  const { family_name: familyName, contact_name: contactName, contact_phone: contactPhone, contact_email: contactEmail, address, status, notes } = parsed.data
+  const { family_name: familyName, contact_name: contactName, contact_phone: contactPhone, contact_email: contactEmail, address, status, notes, secondary_name: secondaryName, secondary_role: secondaryRole, secondary_phone: secondaryPhone, secondary_email: secondaryEmail } = parsed.data
 
   const primaryContact = {
     name: contactName,
@@ -115,11 +116,21 @@ export async function updateFamily(id: string, formData: FormData) {
     email: contactEmail || undefined,
   }
 
+  const secondaryContact = (secondaryName || secondaryPhone || secondaryEmail)
+    ? {
+        name: secondaryName || undefined,
+        role: secondaryRole || undefined,
+        phone: secondaryPhone || undefined,
+        email: secondaryEmail || undefined,
+      }
+    : null
+
   const { error } = await supabase
     .from('families')
     .update({
       family_name: familyName,
       primary_contact: primaryContact,
+      secondary_contact: secondaryContact,
       address: address || null,
       status,
       notes: notes || null,
@@ -178,20 +189,24 @@ export async function updatePlayer(playerId: string, familyId: string, formData:
     redirect(`/admin/families/${familyId}/players/${playerId}?error=${encodeURIComponent(parsed.error)}`)
   }
 
-  const { first_name: firstName, last_name: lastName, dob, ball_color: ballColor, level, medical_notes: medicalNotes, current_focus: currentFocus, short_term_goal: shortTermGoal, long_term_goal: longTermGoal, media_consent: mediaConsent } = parsed.data
+  const { first_name: firstName, last_name: lastName, preferred_name: preferredName, gender, dob, ball_color: ballColor, level, medical_notes: medicalNotes, physical_notes: physicalNotes, current_focus: currentFocus, short_term_goal: shortTermGoal, long_term_goal: longTermGoal, comp_interest: compInterest, media_consent: mediaConsent } = parsed.data
 
   const { error } = await supabase
     .from('players')
     .update({
       first_name: firstName,
       last_name: lastName,
+      preferred_name: preferredName || null,
+      gender: gender || null,
       dob: dob || null,
       ball_color: ballColor || null,
       level: level || null,
       medical_notes: medicalNotes || null,
+      physical_notes: physicalNotes || null,
       current_focus: currentFocus ? currentFocus.split(',').map((s) => s.trim()) : null,
       short_term_goal: shortTermGoal || null,
       long_term_goal: longTermGoal || null,
+      comp_interest: compInterest || null,
       media_consent: mediaConsent === 'on',
     })
     .eq('id', playerId)
@@ -350,6 +365,129 @@ export async function createSession(formData: FormData) {
 
   revalidatePath('/admin/sessions')
   redirect('/admin/sessions')
+}
+
+export async function generateTermSessions(formData: FormData) {
+  await requireAdmin()
+  const supabase = await createClient()
+
+  const parsed = validateFormData(formData, generateTermSessionsFormSchema)
+  if (!parsed.success) {
+    redirect(`/admin/sessions?error=${encodeURIComponent(parsed.error)}`)
+  }
+
+  const { term, year } = parsed.data
+
+  // Get term dates
+  const { getTerm, isPublicHoliday } = await import('@/lib/utils/school-terms')
+  const termInfo = getTerm(term, year)
+  if (!termInfo) {
+    redirect(`/admin/sessions?error=${encodeURIComponent(`Term ${term} ${year} not found in school-terms config`)}`)
+  }
+
+  // Get all active programs with scheduling info
+  const { data: programs } = await supabase
+    .from('programs')
+    .select('id, name, type, day_of_week, start_time, end_time, venue_id')
+    .eq('status', 'active')
+    .not('day_of_week', 'is', null)
+    .not('start_time', 'is', null)
+
+  if (!programs || programs.length === 0) {
+    redirect(`/admin/sessions?error=${encodeURIComponent('No active programs with scheduling info found')}`)
+  }
+
+  // Get primary coaches for each program
+  const programIds = programs.map(p => p.id)
+  const { data: programCoaches } = await supabase
+    .from('program_coaches')
+    .select('program_id, coach_id, role')
+    .in('program_id', programIds)
+
+  const coachByProgram = new Map<string, string>()
+  programCoaches?.forEach(pc => {
+    // Prefer 'primary' or 'lead' role, otherwise first coach
+    if (!coachByProgram.has(pc.program_id) || pc.role === 'primary' || pc.role === 'lead') {
+      coachByProgram.set(pc.program_id, pc.coach_id)
+    }
+  })
+
+  // Get existing sessions for this term to avoid duplicates
+  const startDate = termInfo.start.toISOString().split('T')[0]
+  const endDate = termInfo.end.toISOString().split('T')[0]
+  const { data: existingSessions } = await supabase
+    .from('sessions')
+    .select('program_id, date')
+    .gte('date', startDate)
+    .lte('date', endDate)
+
+  const existingSet = new Set(
+    existingSessions?.map(s => `${s.program_id}:${s.date}`) ?? []
+  )
+
+  // Generate sessions
+  const sessionsToInsert: {
+    program_id: string
+    date: string
+    start_time: string
+    end_time: string
+    session_type: string
+    coach_id: string | null
+    venue_id: string | null
+    status: string
+  }[] = []
+
+  const current = new Date(termInfo.start)
+  const end = new Date(termInfo.end)
+
+  while (current <= end) {
+    // JS getDay(): 0=Sun, 1=Mon...6=Sat
+    const jsDay = current.getDay()
+
+    if (!isPublicHoliday(current)) {
+      for (const program of programs) {
+        if (program.day_of_week === jsDay) {
+          const dateStr = current.toISOString().split('T')[0]
+          const key = `${program.id}:${dateStr}`
+
+          if (!existingSet.has(key)) {
+            const sessionType = program.type === 'competition' ? 'competition' : program.type === 'squad' ? 'squad' : program.type === 'school' ? 'school' : 'group'
+            sessionsToInsert.push({
+              program_id: program.id,
+              date: dateStr,
+              start_time: program.start_time!,
+              end_time: program.end_time!,
+              session_type: sessionType,
+              coach_id: coachByProgram.get(program.id) ?? null,
+              venue_id: program.venue_id ?? null,
+              status: 'scheduled',
+            })
+          }
+        }
+      }
+    }
+
+    current.setDate(current.getDate() + 1)
+  }
+
+  if (sessionsToInsert.length === 0) {
+    redirect(`/admin/sessions?success=${encodeURIComponent(`No new sessions needed for T${term} ${year} - all sessions already exist`)}`)
+  }
+
+  // Insert in batches of 100
+  let created = 0
+  for (let i = 0; i < sessionsToInsert.length; i += 100) {
+    const batch = sessionsToInsert.slice(i, i + 100)
+    const { error } = await supabase.from('sessions').insert(batch)
+    if (error) {
+      console.error('Session generation batch error:', error.message)
+      redirect(`/admin/sessions?error=${encodeURIComponent(`Created ${created} sessions, then failed: ${error.message}`)}`)
+    }
+    created += batch.length
+  }
+
+  revalidatePath('/admin/sessions')
+  redirect(`/admin/sessions?success=${encodeURIComponent(`Generated ${created} sessions for T${term} ${year}`)}`)
 }
 
 export async function updateAttendance(sessionId: string, formData: FormData) {

@@ -3,7 +3,7 @@
  * Update annually when new dates are published.
  */
 
-interface SchoolTerm {
+export interface SchoolTerm {
   term: number
   year: number
   start: Date
@@ -23,6 +23,47 @@ const SA_TERMS: SchoolTerm[] = [
   { term: 3, year: 2026, start: new Date(2026, 6, 20), end: new Date(2026, 8, 25) },
   { term: 4, year: 2026, start: new Date(2026, 9, 12), end: new Date(2026, 11, 11) },
 ]
+
+/**
+ * SA public holidays — hardcoded from safework.sa.gov.au
+ * Used to skip holidays when generating sessions.
+ * Note: SA has Proclamation Day (26 Dec) instead of King's Birthday.
+ */
+const SA_PUBLIC_HOLIDAYS: Date[] = [
+  // 2025
+  new Date(2025, 0, 1),   // New Year's Day
+  new Date(2025, 0, 27),  // Australia Day (Mon)
+  new Date(2025, 2, 10),  // Adelaide Cup
+  new Date(2025, 3, 18),  // Good Friday
+  new Date(2025, 3, 19),  // Easter Saturday
+  new Date(2025, 3, 21),  // Easter Monday
+  new Date(2025, 3, 25),  // ANZAC Day
+  new Date(2025, 9, 6),   // Labour Day (SA)
+  new Date(2025, 11, 25), // Christmas Day
+  new Date(2025, 11, 26), // Proclamation Day
+  // 2026
+  new Date(2026, 0, 1),   // New Year's Day
+  new Date(2026, 0, 26),  // Australia Day
+  new Date(2026, 2, 9),   // Adelaide Cup
+  new Date(2026, 3, 3),   // Good Friday
+  new Date(2026, 3, 4),   // Easter Saturday
+  new Date(2026, 3, 6),   // Easter Monday
+  new Date(2026, 3, 25),  // ANZAC Day (Saturday)
+  new Date(2026, 9, 5),   // Labour Day (SA)
+  new Date(2026, 11, 25), // Christmas Day
+  new Date(2026, 11, 28), // Proclamation Day (Mon, since 26 Dec is Saturday)
+]
+
+/** Find a specific term by number and year */
+export function getTerm(term: number, year: number): SchoolTerm | undefined {
+  return SA_TERMS.find(t => t.term === term && t.year === year)
+}
+
+/** Check if a given date is a SA public holiday */
+export function isPublicHoliday(date: Date): boolean {
+  const d = startOfDay(date)
+  return SA_PUBLIC_HOLIDAYS.some(h => startOfDay(h).getTime() === d.getTime())
+}
 
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())

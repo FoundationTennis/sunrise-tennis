@@ -30,6 +30,19 @@ export function PlayerEditForm({ player, familyId }: { player: Player; familyId:
             <Input id="last_name" name="last_name" type="text" required defaultValue={player.last_name} className="mt-1" />
           </div>
           <div>
+            <Label htmlFor="preferred_name">Preferred name</Label>
+            <Input id="preferred_name" name="preferred_name" type="text" defaultValue={player.preferred_name ?? ''} placeholder="If different from first name" className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="gender">Gender</Label>
+            <select id="gender" name="gender" defaultValue={player.gender ?? ''} className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="">Select...</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="non_binary">Non-binary</option>
+            </select>
+          </div>
+          <div>
             <Label htmlFor="dob">Date of birth</Label>
             <Input id="dob" name="dob" type="date" defaultValue={player.dob ?? ''} className="mt-1" />
           </div>
@@ -59,9 +72,22 @@ export function PlayerEditForm({ player, familyId }: { player: Player; familyId:
             <Label htmlFor="long_term_goal">Long-term goal</Label>
             <Input id="long_term_goal" name="long_term_goal" type="text" defaultValue={player.long_term_goal ?? ''} className="mt-1" />
           </div>
+          <div>
+            <Label htmlFor="comp_interest">Competition interest</Label>
+            <select id="comp_interest" name="comp_interest" defaultValue={player.comp_interest ?? ''} className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="">Select...</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+              <option value="future">Future</option>
+            </select>
+          </div>
           <div className="sm:col-span-2">
             <Label htmlFor="medical_notes">Medical notes</Label>
             <Textarea id="medical_notes" name="medical_notes" rows={2} defaultValue={player.medical_notes ?? ''} className="mt-1" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="physical_notes">Physical notes</Label>
+            <Textarea id="physical_notes" name="physical_notes" rows={2} defaultValue={player.physical_notes ?? ''} className="mt-1" />
           </div>
           <div className="flex items-center gap-3">
             <input

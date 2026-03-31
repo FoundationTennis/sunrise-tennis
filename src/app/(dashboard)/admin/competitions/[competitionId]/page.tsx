@@ -39,13 +39,15 @@ export default async function CompetitionDetailPage({
 
   if (!competition) notFound()
 
-  // Get player counts per team
+  // Get players per team (including names for inline roster)
   const teamIds = teams?.map((t) => t.id) ?? []
   const { data: allPlayers } = teamIds.length > 0
     ? await supabase
         .from('competition_players')
-        .select('id, team_id, registration_status, role')
+        .select('id, team_id, first_name, last_name, registration_status, role')
         .in('team_id', teamIds)
+        .order('sort_order')
+        .order('first_name')
     : { data: [] }
 
   const playersByTeam = new Map<string, typeof allPlayers>()
@@ -160,6 +162,28 @@ export default async function CompetitionDetailPage({
                     <AlertTriangle className="size-3" />
                     {required - total} gap{required - total !== 1 ? 's' : ''}
                   </span>
+                )}
+
+                {/* Inline player roster */}
+                {teamPlayers.length > 0 && (
+                  <div className="mt-3 border-t border-border/50 pt-2">
+                    <ul className="space-y-0.5">
+                      {teamPlayers.slice(0, 6).map((tp) => (
+                        <li key={tp.id} className="flex items-center justify-between text-xs">
+                          <span className="truncate text-foreground/80">
+                            {tp.first_name}{tp.last_name ? ` ${tp.last_name}` : ''}
+                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <span className={`size-1.5 rounded-full ${tp.registration_status === 'registered' ? 'bg-emerald-500' : tp.registration_status === 'pending' ? 'bg-amber-400' : 'bg-gray-300'}`} />
+                            <span className="text-muted-foreground capitalize">{tp.role.replace('_', ' ')}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    {teamPlayers.length > 6 && (
+                      <p className="mt-1 text-[10px] text-muted-foreground">+ {teamPlayers.length - 6} more</p>
+                    )}
+                  </div>
                 )}
               </Link>
             )

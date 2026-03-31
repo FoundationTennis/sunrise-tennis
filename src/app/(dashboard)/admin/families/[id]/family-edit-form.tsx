@@ -11,6 +11,7 @@ type Family = Database['public']['Tables']['families']['Row']
 
 export function FamilyEditForm({ family }: { family: Family }) {
   const contact = family.primary_contact as { name?: string; phone?: string; email?: string } | null
+  const secondaryContact = family.secondary_contact as { name?: string; role?: string; phone?: string; email?: string } | null
   const updateWithId = updateFamily.bind(null, family.id)
 
   return (
@@ -49,6 +50,27 @@ export function FamilyEditForm({ family }: { family: Family }) {
             <Label htmlFor="address">Address</Label>
             <Input id="address" name="address" type="text" defaultValue={family.address ?? ''} className="mt-1" />
           </div>
+          {/* Secondary contact */}
+          <div className="sm:col-span-2">
+            <p className="text-sm font-semibold text-foreground">Secondary Contact</p>
+          </div>
+          <div>
+            <Label htmlFor="secondary_name">Name</Label>
+            <Input id="secondary_name" name="secondary_name" type="text" defaultValue={secondaryContact?.name ?? ''} className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="secondary_role">Role</Label>
+            <Input id="secondary_role" name="secondary_role" type="text" placeholder="e.g. Father, Grandparent" defaultValue={secondaryContact?.role ?? ''} className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="secondary_phone">Phone</Label>
+            <Input id="secondary_phone" name="secondary_phone" type="tel" defaultValue={secondaryContact?.phone ?? ''} className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="secondary_email">Email</Label>
+            <Input id="secondary_email" name="secondary_email" type="email" defaultValue={secondaryContact?.email ?? ''} className="mt-1" />
+          </div>
+
           <div className="sm:col-span-2">
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" name="notes" rows={3} defaultValue={family.notes ?? ''} className="mt-1" />

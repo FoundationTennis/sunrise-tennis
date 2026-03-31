@@ -4,6 +4,7 @@ import { createClient, decryptMedicalNotes } from '@/lib/supabase/server'
 import { formatDate } from '@/lib/utils/dates'
 import { PlayerEditForm } from './player-edit-form'
 import { Card, CardContent } from '@/components/ui/card'
+import { StatusBadge } from '@/components/status-badge'
 
 export default async function PlayerDetailPage({
   params,
@@ -13,9 +14,12 @@ export default async function PlayerDetailPage({
   const { id: familyId, playerId } = await params
   const supabase = await createClient()
 
-  const [{ data: player }, { data: family }] = await Promise.all([
+  const [{ data: player }, { data: family }, { data: roster }, { data: compPlayers }, { data: coaches }] = await Promise.all([
     supabase.from('players').select('*').eq('id', playerId).single(),
     supabase.from('families').select('display_id, family_name').eq('id', familyId).single(),
+    supabase.from('program_roster').select('status, enrolled_at, programs:program_id(id, name, type, term)').eq('player_id', playerId),
+    supabase.from('competition_players').select('id, first_name, role, registration_status, teams:team_id(id, name, competitions:competition_id(id, name, short_name))').eq('player_id', playerId),
+    supabase.from('coaches').select('id, name').eq('status', 'active'),
   ])
 
   if (!player || !family) notFound()
@@ -47,6 +51,12 @@ export default async function PlayerDetailPage({
           <CardContent className="pt-6">
             <h2 className="text-lg font-semibold text-foreground">Player Profile</h2>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+              {player.preferred_name && player.preferred_name !== player.first_name && (
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Preferred Name</dt>
+                  <dd className="text-sm text-foreground">{player.preferred_name}</dd>
+                </div>
+              )}
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Ball Colour</dt>
                 <dd className="text-sm text-foreground capitalize">{player.ball_color ?? '-'}</dd>
@@ -57,12 +67,45 @@ export default async function PlayerDetailPage({
               </div>
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Date of Birth</dt>
-                <dd className="text-sm text-foreground">{player.dob ? formatDate(player.dob) : '-'}</dd>
+                <dd className="text-sm text-foreground">
+                  {player.dob ? (
+                    <>
+                      {formatDate(player.dob)}
+                      <span className="ml-1 text-muted-foreground">
+                        ({Math.floor((Date.now() - new Date(player.dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} yrs)
+                      </span>
+                    </>
+                  ) : '-'}
+                </dd>
               </div>
+              {player.gender && (
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Gender</dt>
+                  <dd className="text-sm text-foreground capitalize">{player.gender.replace('_', ' ')}</dd>
+                </div>
+              )}
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Status</dt>
                 <dd className="text-sm text-foreground capitalize">{player.status}</dd>
               </div>
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Media Consent</dt>
+                <dd className="text-sm">
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${player.media_consent ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                    {player.media_consent ? 'Yes' : 'No'}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Competition Interest</dt>
+                <dd className="text-sm text-foreground capitalize">{player.comp_interest ?? '-'}</dd>
+              </div>
+              {player.coach_id && coaches && (
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Assigned Coach</dt>
+                  <dd className="text-sm text-foreground">{coaches.find(c => c.id === player.coach_id)?.name ?? '-'}</dd>
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <dt className="text-xs font-medium text-muted-foreground">Current Focus</dt>
                 <dd className="text-sm text-foreground">{player.current_focus?.join(', ') ?? '-'}</dd>
@@ -81,9 +124,90 @@ export default async function PlayerDetailPage({
                   <dd className="text-sm text-foreground">{player.medical_notes}</dd>
                 </div>
               )}
+              {player.physical_notes && (
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-medium text-muted-foreground">Physical Notes</dt>
+                  <dd className="text-sm text-foreground">{player.physical_notes}</dd>
+                </div>
+              )}
             </dl>
           </CardContent>
         </Card>
+
+        {/* Programs */}
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold text-foreground">Programs</h2>
+            {roster && roster.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {roster.filter(r => r.status === 'enrolled').map((r) => {
+                  const prog = r.programs as unknown as { id: string; name: string; type: string; term: string | null } | null
+                  return prog ? (
+                    <Link
+                      key={`${prog.id}-enrolled`}
+                      href={`/admin/programs/${prog.id}`}
+                      className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-primary/5"
+                    >
+                      <span className="font-medium text-foreground">{prog.name}</span>
+                      <div className="flex items-center gap-2">
+                        {prog.term && <span className="text-xs text-muted-foreground">{prog.term}</span>}
+                        <StatusBadge status="enrolled" />
+                      </div>
+                    </Link>
+                  ) : null
+                })}
+                {roster.filter(r => r.status === 'dropped').map((r) => {
+                  const prog = r.programs as unknown as { id: string; name: string; type: string; term: string | null } | null
+                  return prog ? (
+                    <div
+                      key={`${prog.id}-dropped`}
+                      className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2 text-sm opacity-60"
+                    >
+                      <span className="text-foreground">{prog.name}</span>
+                      <div className="flex items-center gap-2">
+                        {prog.term && <span className="text-xs text-muted-foreground">{prog.term}</span>}
+                        <span className="text-xs text-muted-foreground">(dropped)</span>
+                      </div>
+                    </div>
+                  ) : null
+                })}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">Not enrolled in any programs.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Competitions */}
+        {compPlayers && compPlayers.length > 0 && (
+          <Card>
+            <CardContent className="pt-6">
+              <h2 className="text-lg font-semibold text-foreground">Competitions</h2>
+              <div className="mt-3 space-y-2">
+                {compPlayers.map((cp) => {
+                  const team = cp.teams as unknown as { id: string; name: string; competitions: { id: string; name: string; short_name: string | null } } | null
+                  const comp = team?.competitions
+                  return (
+                    <Link
+                      key={cp.id}
+                      href={comp ? `/admin/competitions/${comp.id}` : '#'}
+                      className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-primary/5"
+                    >
+                      <div>
+                        <span className="font-medium text-foreground">{comp?.name ?? 'Unknown'}</span>
+                        {team && <span className="ml-2 text-muted-foreground">({team.name})</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize">{cp.role}</span>
+                        <StatusBadge status={cp.registration_status} />
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Edit form */}
         <PlayerEditForm player={player} familyId={familyId} />

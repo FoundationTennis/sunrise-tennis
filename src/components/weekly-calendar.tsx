@@ -82,6 +82,74 @@ function isToday(date: Date): boolean {
     date.getFullYear() === now.getFullYear()
 }
 
+/**
+ * Compute collision layout for overlapping events in a single day column.
+ * Returns a map of event ID -> { column index, total columns in group }.
+ */
+function computeCollisionLayout(dayEvents: CalendarEvent[]): Map<string, { col: number; total: number }> {
+  const layout = new Map<string, { col: number; total: number }>()
+  if (dayEvents.length === 0) return layout
+
+  // Sort by start time, then by duration descending (longer events first)
+  const sorted = [...dayEvents].sort((a, b) => {
+    const diff = parseTime(a.startTime) - parseTime(b.startTime)
+    if (diff !== 0) return diff
+    return (parseTime(b.endTime) - parseTime(b.startTime)) - (parseTime(a.endTime) - parseTime(a.startTime))
+  })
+
+  // Build collision clusters (connected components of overlapping events)
+  const clusters: CalendarEvent[][] = []
+  for (const event of sorted) {
+    const eStart = parseTime(event.startTime)
+    const eEnd = parseTime(event.endTime)
+
+    // Find a cluster this event overlaps with
+    let placed = false
+    for (const cluster of clusters) {
+      const clusterEnd = Math.max(...cluster.map(e => parseTime(e.endTime)))
+      if (eStart < clusterEnd) {
+        cluster.push(event)
+        placed = true
+        break
+      }
+    }
+    if (!placed) {
+      clusters.push([event])
+    }
+  }
+
+  // Assign columns within each cluster
+  for (const cluster of clusters) {
+    const columns: CalendarEvent[][] = []
+    for (const event of cluster) {
+      const eStart = parseTime(event.startTime)
+      // Find the first column where this event doesn't overlap with the last event
+      let placed = false
+      for (let c = 0; c < columns.length; c++) {
+        const lastInCol = columns[c][columns[c].length - 1]
+        if (parseTime(lastInCol.endTime) <= eStart) {
+          columns[c].push(event)
+          layout.set(event.id, { col: c, total: 0 }) // total set after
+          placed = true
+          break
+        }
+      }
+      if (!placed) {
+        columns.push([event])
+        layout.set(event.id, { col: columns.length - 1, total: 0 })
+      }
+    }
+    // Set total columns for all events in this cluster
+    const totalCols = columns.length
+    for (const event of cluster) {
+      const entry = layout.get(event.id)!
+      entry.total = totalCols
+    }
+  }
+
+  return layout
+}
+
 export function WeeklyCalendar({
   events,
   onEventClick,
@@ -227,26 +295,35 @@ export function WeeklyCalendar({
                     />
                   ))}
 
-                  {/* Events for this day */}
-                  {events
-                    .filter((e) => DAY_MAP[e.dayOfWeek] === colIdx)
-                    .map((event) => {
+                  {/* Events for this day — with collision layout */}
+                  {(() => {
+                    const dayEvents = events.filter((e) => DAY_MAP[e.dayOfWeek] === colIdx)
+                    const collisionLayout = computeCollisionLayout(dayEvents)
+                    return dayEvents.map((event) => {
                       const startHour = parseTime(event.startTime)
                       const endHour = parseTime(event.endTime)
                       const top = (startHour - minHour) * hourHeight
                       const height = Math.max((endHour - startHour) * hourHeight, 24)
                       const isExpanded = expandedEvent?.id === event.id
+                      const layout = collisionLayout.get(event.id) ?? { col: 0, total: 1 }
+                      const widthPct = 100 / layout.total
+                      const leftPct = layout.col * widthPct
 
                       return (
                         <button
                           key={event.id}
                           onClick={() => handleEventClick(event)}
                           className={cn(
-                            'absolute left-0.5 right-0.5 overflow-hidden rounded-md border px-1.5 py-0.5 text-left transition-all',
+                            'absolute overflow-hidden rounded-md border px-1 py-0.5 text-left transition-all',
                             isExpanded ? 'ring-2 ring-white ring-offset-2 ring-offset-background brightness-110 z-10' : 'hover:brightness-110',
                             event.color ?? 'bg-primary border-primary/80 text-white'
                           )}
-                          style={{ top, height }}
+                          style={{
+                            top,
+                            height,
+                            left: `calc(${leftPct}% + 1px)`,
+                            width: `calc(${widthPct}% - 2px)`,
+                          }}
                         >
                           <p className="truncate text-[11px] font-medium leading-tight">
                             {event.title}
@@ -263,7 +340,8 @@ export function WeeklyCalendar({
                           )}
                         </button>
                       )
-                    })}
+                    })
+                  })()}
                 </div>
               )
             })}
