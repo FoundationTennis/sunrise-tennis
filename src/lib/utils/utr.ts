@@ -25,7 +25,7 @@ export async function searchUTRPlayers(
     `https://app.utrsports.net/api/v2/search/players?query=${encodeURIComponent(query)}&top=${top}`,
     {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 300 },
+      cache: 'no-store',
     },
   )
 
