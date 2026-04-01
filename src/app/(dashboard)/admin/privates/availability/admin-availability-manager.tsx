@@ -70,7 +70,7 @@ export function AdminAvailabilityManager({ coaches, selectedCoachId, windows, ex
             size="sm"
             onClick={() => router.push(`/admin/privates/availability?coach_id=${coach.id}`)}
           >
-            {coach.name}
+            {coach.name.split(' ')[0]}
           </Button>
         ))}
       </div>
@@ -91,7 +91,7 @@ export function AdminAvailabilityManager({ coaches, selectedCoachId, windows, ex
               <CardContent className="p-0">
                 <div className="border-b border-border px-4 py-3">
                   <h2 className="text-sm font-semibold text-foreground">
-                    {selectedCoach.name}&apos;s Weekly Availability
+                    {selectedCoach.name.split(' ')[0]}&apos;s Weekly Availability
                   </h2>
                 </div>
                 <div className="divide-y divide-border">

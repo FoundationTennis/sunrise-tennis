@@ -21,7 +21,7 @@ export default async function AdminPrivatesPage({
     { data: availability },
     { data: pendingBookings, count: pendingCount },
   ] = await Promise.all([
-    supabase.from('coaches').select('id, name, is_owner, pay_period, status').eq('status', 'active').order('name'),
+    supabase.from('coaches').select('id, name, is_owner, pay_period, status, hourly_rate').eq('status', 'active'),
     supabase.from('coach_availability').select('coach_id, day_of_week, start_time, end_time').order('day_of_week').order('start_time'),
     supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('booking_type', 'private').eq('approval_status', 'pending'),
   ])
@@ -101,15 +101,23 @@ export default async function AdminPrivatesPage({
       <div>
         <h2 className="mb-3 text-lg font-semibold text-foreground">Coach Availability</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {(coaches ?? []).map((coach) => {
+          {(coaches ?? [])
+            .filter(c => ((c.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0) > 0)
+            .sort((a, b) => {
+              const rA = (a.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0
+              const rB = (b.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0
+              return rB - rA || a.name.localeCompare(b.name)
+            })
+            .map((coach) => {
             const windows = coachAvailability.get(coach.id) ?? []
+            const firstName = coach.name.split(' ')[0]
             return (
               <Card key={coach.id}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Users className="size-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">{coach.name}</span>
+                      <span className="text-sm font-medium">{firstName}</span>
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {coach.pay_period === 'end_of_term' ? 'Term pay' : 'Weekly pay'}

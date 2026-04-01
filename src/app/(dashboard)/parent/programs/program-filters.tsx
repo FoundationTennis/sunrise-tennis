@@ -26,6 +26,23 @@ const LEVEL_ACCENTS: Record<string, { bar: string; bg: string; badge: string }> 
   blue:   { bar: 'bg-ball-blue',   bg: 'bg-ball-blue/5',   badge: 'bg-ball-blue/10 text-ball-blue border-ball-blue/20' },
 }
 
+/** Button colors for level filter pills */
+const LEVEL_PILL_STYLES: Record<string, { active: string; inactive: string }> = {
+  red:    { active: 'bg-ball-red text-white shadow-sm',    inactive: 'bg-ball-red/15 text-ball-red hover:bg-ball-red/25' },
+  orange: { active: 'bg-ball-orange text-white shadow-sm', inactive: 'bg-ball-orange/15 text-ball-orange hover:bg-ball-orange/25' },
+  green:  { active: 'bg-ball-green text-white shadow-sm',  inactive: 'bg-ball-green/15 text-ball-green hover:bg-ball-green/25' },
+  yellow: { active: 'bg-ball-yellow text-black shadow-sm', inactive: 'bg-ball-yellow/15 text-ball-yellow hover:bg-ball-yellow/25' },
+  blue:   { active: 'bg-ball-blue text-white shadow-sm',   inactive: 'bg-ball-blue/15 text-ball-blue hover:bg-ball-blue/25' },
+  competitive: { active: 'bg-primary text-white shadow-sm', inactive: 'bg-primary/15 text-primary hover:bg-primary/25' },
+}
+
+const TYPE_PILL_STYLES: Record<string, { active: string; inactive: string }> = {
+  group:       { active: 'bg-blue-600 text-white shadow-sm',  inactive: 'bg-blue-100 text-blue-700 hover:bg-blue-200' },
+  squad:       { active: 'bg-slate-700 text-white shadow-sm', inactive: 'bg-slate-100 text-slate-700 hover:bg-slate-200' },
+  school:      { active: 'bg-purple-600 text-white shadow-sm', inactive: 'bg-purple-100 text-purple-700 hover:bg-purple-200' },
+  competition: { active: 'bg-amber-500 text-white shadow-sm', inactive: 'bg-amber-100 text-amber-700 hover:bg-amber-200' },
+}
+
 type Program = {
   id: string
   name: string
@@ -109,6 +126,18 @@ function ProgramCard({
   )
 }
 
+/**
+ * Filter programs by level, including competition programs that span
+ * multiple levels (e.g. "Red/Orange comp" shows under both red and orange).
+ */
+function filterByLevel(programs: Program[], level: string): Program[] {
+  return programs.filter(p => {
+    if (p.level === level) return true
+    const nameLower = p.name.toLowerCase()
+    return nameLower.includes(level.toLowerCase())
+  })
+}
+
 export function ParentProgramFilters({
   programs,
   playerLevels,
@@ -124,7 +153,23 @@ export function ParentProgramFilters({
   const playerIds = useMemo(() => new Set(familyPlayerIds), [familyPlayerIds])
   const playerLevelSet = useMemo(() => new Set(playerLevels), [playerLevels])
 
-  const levels = useMemo(() => [...new Set(programs.map(p => p.level).filter(Boolean) as string[])].sort(), [programs])
+  const levels = useMemo(() => {
+    const lvls = new Set<string>()
+    programs.forEach(p => {
+      if (p.level) lvls.add(p.level)
+      const nameLower = p.name.toLowerCase()
+      for (const l of ['red', 'orange', 'green', 'yellow', 'blue']) {
+        if (nameLower.includes(l)) lvls.add(l)
+      }
+    })
+    const order = ['red', 'orange', 'green', 'yellow', 'blue', 'competitive']
+    return [...lvls].sort((a, b) => {
+      const iA = order.indexOf(a)
+      const iB = order.indexOf(b)
+      return (iA === -1 ? 99 : iA) - (iB === -1 ? 99 : iB)
+    })
+  }, [programs])
+
   const types = useMemo(() => [...new Set(programs.map(p => p.type).filter(Boolean))].sort(), [programs])
 
   const recommended = useMemo(() => {
@@ -132,7 +177,7 @@ export function ParentProgramFilters({
     return rec.length > 0 ? rec : programs
   }, [programs, playerLevelSet])
 
-  const filteredByLevel = levelFilter ? programs.filter(p => p.level === levelFilter) : programs
+  const filteredByLevel = levelFilter ? filterByLevel(programs, levelFilter) : programs
   const filteredByType = typeFilter ? programs.filter(p => p.type === typeFilter) : programs
 
   const calendarEvents: CalendarEvent[] = useMemo(() => {
@@ -169,11 +214,12 @@ export function ParentProgramFilters({
 
   return (
     <div>
+      {/* Primary tabs */}
       <div className="flex gap-1 overflow-x-auto rounded-xl bg-muted/60 p-1 shadow-sm">
         {tabDefs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setTab(key)}
+            onClick={() => { setTab(key); setLevelFilter(''); setTypeFilter('') }}
             className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
               tab === key
                 ? 'bg-card text-foreground shadow-card'
@@ -209,30 +255,64 @@ export function ParentProgramFilters({
         </div>
       )}
 
+      {/* Level tab — color-coded pill buttons */}
       {tab === 'level' && (
         <div className="mt-4">
-          <select
-            value={levelFilter}
-            onChange={(e) => setLevelFilter(e.target.value)}
-            className="mb-4 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            <option value="">All levels</option>
-            {levels.map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
-          </select>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => setLevelFilter('')}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
+                !levelFilter ? 'bg-foreground text-background shadow-sm' : 'bg-muted text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              All
+            </button>
+            {levels.map(l => {
+              const style = LEVEL_PILL_STYLES[l] ?? { active: 'bg-primary text-white shadow-sm', inactive: 'bg-muted text-muted-foreground hover:bg-accent' }
+              return (
+                <button
+                  key={l}
+                  onClick={() => setLevelFilter(l === levelFilter ? '' : l)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium capitalize transition-all ${
+                    levelFilter === l ? style.active : style.inactive
+                  }`}
+                >
+                  {l}
+                </button>
+              )
+            })}
+          </div>
           <ProgramGrid items={filteredByLevel} />
         </div>
       )}
 
+      {/* Type tab — colored pill buttons */}
       {tab === 'type' && (
         <div className="mt-4">
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="mb-4 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            <option value="">All types</option>
-            {types.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-          </select>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => setTypeFilter('')}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
+                !typeFilter ? 'bg-foreground text-background shadow-sm' : 'bg-muted text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              All
+            </button>
+            {types.map(t => {
+              const style = TYPE_PILL_STYLES[t] ?? { active: 'bg-primary text-white shadow-sm', inactive: 'bg-muted text-muted-foreground hover:bg-accent' }
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTypeFilter(t === typeFilter ? '' : t)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium capitalize transition-all ${
+                    typeFilter === t ? style.active : style.inactive
+                  }`}
+                >
+                  {t}
+                </button>
+              )
+            })}
+          </div>
           <ProgramGrid items={filteredByType} />
         </div>
       )}

@@ -6,8 +6,10 @@ import { z } from 'zod'
 const safeString = (maxLen = 2000) => z.string().trim().max(maxLen)
 const requiredString = (msg: string, maxLen = 500) => safeString(maxLen).min(1, msg)
 const optionalString = (maxLen = 2000) => safeString(maxLen).optional().or(z.literal(''))
-const uuidString = (msg: string) => z.string().uuid(msg)
-const optionalUuid = () => z.string().uuid().optional().or(z.literal(''))
+/** Accept any UUID-format string (Zod v4 .uuid() rejects non-v4 deterministic IDs) */
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+const uuidString = (msg: string) => z.string().regex(UUID_RE, msg)
+const optionalUuid = () => z.string().regex(UUID_RE).optional().or(z.literal(''))
 const dollarAmount = (msg: string) =>
   z.string().regex(/^\d+(\.\d{1,2})?$/, msg)
 

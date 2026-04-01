@@ -220,25 +220,25 @@ export async function adminBookPrivate(formData: FormData) {
 
   const familyId = formData.get('family_id') as string
   const coachId = formData.get('coach_id') as string
-  const playerName = (formData.get('player_name') as string)?.trim()
+  const playerId = formData.get('player_id') as string
   const date = formData.get('date') as string
   const startTime = formData.get('start_time') as string
   const durationMinutes = parseInt(formData.get('duration_minutes') as string)
 
-  if (!familyId || !coachId || !playerName || !date || !startTime || !durationMinutes) {
+  if (!familyId || !coachId || !playerId || !date || !startTime || !durationMinutes) {
     redirect('/admin/privates/bookings?error=All+fields+are+required')
   }
 
-  // Find the player by name in this family
+  // Verify the player belongs to this family
   const { data: player } = await supabase
     .from('players')
     .select('id, first_name')
+    .eq('id', playerId)
     .eq('family_id', familyId)
-    .ilike('first_name', playerName)
     .single()
 
   if (!player) {
-    redirect(`/admin/privates/bookings?error=${encodeURIComponent(`Player "${playerName}" not found in this family`)}`)
+    redirect('/admin/privates/bookings?error=Player+not+found+in+this+family')
   }
 
   // Get coach name

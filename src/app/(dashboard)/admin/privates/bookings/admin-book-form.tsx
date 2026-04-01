@@ -1,16 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Search, X } from 'lucide-react'
 import { adminBookPrivate } from '../actions'
+
+interface Player {
+  id: string
+  first_name: string
+  last_name: string
+}
 
 interface Family {
   id: string
   display_id: string
   family_name: string
+  primary_contact: { name?: string } | null
+  players: Player[]
 }
 
 interface Coach {
@@ -26,6 +35,43 @@ interface Props {
 
 export function AdminBookForm({ families, coaches }: Props) {
   const [showForm, setShowForm] = useState(false)
+  const [search, setSearch] = useState('')
+  const [selectedFamily, setSelectedFamily] = useState<Family | null>(null)
+  const [selectedPlayerId, setSelectedPlayerId] = useState('')
+
+  // Sort coaches by price descending, then name
+  const sortedCoaches = useMemo(() =>
+    [...coaches].sort((a, b) => b.rate - a.rate || a.name.localeCompare(b.name)),
+    [coaches]
+  )
+
+  // Search families by family name, parent name, or player name
+  const filtered = useMemo(() => {
+    if (!search.trim()) return []
+    const q = search.toLowerCase()
+    return families.filter(f =>
+      f.family_name.toLowerCase().includes(q) ||
+      f.display_id.toLowerCase().includes(q) ||
+      (f.primary_contact?.name ?? '').toLowerCase().includes(q) ||
+      f.players.some(p =>
+        p.first_name.toLowerCase().includes(q) ||
+        p.last_name.toLowerCase().includes(q) ||
+        `${p.first_name} ${p.last_name}`.toLowerCase().includes(q)
+      )
+    ).slice(0, 10)
+  }, [search, families])
+
+  function handleSelectFamily(f: Family) {
+    setSelectedFamily(f)
+    setSearch('')
+    setSelectedPlayerId(f.players.length === 1 ? f.players[0].id : '')
+  }
+
+  function handleClearFamily() {
+    setSelectedFamily(null)
+    setSelectedPlayerId('')
+    setSearch('')
+  }
 
   if (!showForm) {
     return (
@@ -43,28 +89,87 @@ export function AdminBookForm({ families, coaches }: Props) {
           Book a private lesson on behalf of a parent. Auto-confirmed.
         </p>
         <form action={adminBookPrivate} className="mt-4 grid gap-3 sm:grid-cols-2">
+          {/* Family search */}
+          <div className="relative">
+            <Label htmlFor="family_search" className="text-xs">Family</Label>
+            {selectedFamily ? (
+              <div className="mt-1 flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <span className="flex-1 truncate">
+                  {selectedFamily.display_id} - {selectedFamily.family_name}
+                </span>
+                <button type="button" onClick={handleClearFamily} className="text-muted-foreground hover:text-foreground">
+                  <X className="size-3.5" />
+                </button>
+                <input type="hidden" name="family_id" value={selectedFamily.id} />
+              </div>
+            ) : (
+              <>
+                <div className="relative mt-1">
+                  <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="family_search"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search by parent, player, or family name..."
+                    className="pl-8"
+                    autoComplete="off"
+                  />
+                </div>
+                {search.trim() && (
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-elevated">
+                    {filtered.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-muted-foreground">No families found</p>
+                    ) : (
+                      filtered.map(f => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => handleSelectFamily(f)}
+                          className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-accent"
+                        >
+                          <span className="font-medium">{f.display_id} - {f.family_name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {f.primary_contact?.name ? `${f.primary_contact.name} · ` : ''}
+                            {f.players.map(p => p.first_name).join(', ')}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Player dropdown */}
           <div>
-            <Label htmlFor="family_id" className="text-xs">Family</Label>
-            <select id="family_id" name="family_id" required className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-              <option value="">Select family...</option>
-              {families.map(f => (
-                <option key={f.id} value={f.id}>{f.display_id} - {f.family_name}</option>
+            <Label htmlFor="player_id" className="text-xs">Player</Label>
+            <select
+              id="player_id"
+              name="player_id"
+              required
+              value={selectedPlayerId}
+              onChange={e => setSelectedPlayerId(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select player...</option>
+              {(selectedFamily?.players ?? []).map(p => (
+                <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
               ))}
             </select>
           </div>
+
+          {/* Coach */}
           <div>
             <Label htmlFor="coach_id" className="text-xs">Coach</Label>
             <select id="coach_id" name="coach_id" required className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
               <option value="">Select coach...</option>
-              {coaches.map(c => (
-                <option key={c.id} value={c.id}>{c.name} - ${(c.rate / 100).toFixed(0)}/hr</option>
+              {sortedCoaches.filter(c => c.rate > 0).map(c => (
+                <option key={c.id} value={c.id}>{c.name.split(' ')[0]} - ${(c.rate / 100).toFixed(0)}/hr</option>
               ))}
             </select>
           </div>
-          <div>
-            <Label htmlFor="player_name" className="text-xs">Player Name</Label>
-            <Input id="player_name" name="player_name" required placeholder="First name of player" className="mt-1" />
-          </div>
+
           <div>
             <Label htmlFor="date" className="text-xs">Date</Label>
             <Input id="date" name="date" type="date" required className="mt-1" />
@@ -83,7 +188,7 @@ export function AdminBookForm({ families, coaches }: Props) {
           </div>
           <div className="sm:col-span-2 flex gap-2">
             <Button type="submit" size="sm">Book & Confirm</Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => { setShowForm(false); handleClearFamily() }}>Cancel</Button>
           </div>
         </form>
       </CardContent>

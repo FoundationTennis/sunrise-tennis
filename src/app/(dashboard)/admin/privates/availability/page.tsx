@@ -11,11 +11,19 @@ export default async function AdminAvailabilityPage({
   await requireAdmin()
   const supabase = await createClient()
 
-  const { data: coaches } = await supabase
+  const { data: rawCoaches } = await supabase
     .from('coaches')
-    .select('id, name, is_owner, status')
+    .select('id, name, is_owner, status, hourly_rate')
     .eq('status', 'active')
-    .order('name')
+
+  // Only coaches who do privates, sorted by price desc then name
+  const coaches = (rawCoaches ?? [])
+    .filter(c => ((c.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0) > 0)
+    .sort((a, b) => {
+      const rA = (a.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0
+      const rB = (b.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0
+      return rB - rA || a.name.localeCompare(b.name)
+    })
 
   // If a coach is selected, load their data
   let windows = null
