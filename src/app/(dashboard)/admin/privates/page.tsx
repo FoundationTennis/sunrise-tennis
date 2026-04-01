@@ -120,7 +120,7 @@ export default async function AdminPrivatesPage({
                       <span className="text-sm font-medium">{firstName}</span>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {coach.pay_period === 'end_of_term' ? 'Term pay' : 'Weekly pay'}
+                      {coach.pay_period === 'end_of_term' ? 'Term pay' : coach.pay_period === 'fortnightly' ? 'Fortnightly' : 'Weekly pay'}
                     </span>
                   </div>
                   {windows.length > 0 ? (

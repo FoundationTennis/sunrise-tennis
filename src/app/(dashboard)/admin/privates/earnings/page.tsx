@@ -15,7 +15,7 @@ export default async function AdminEarningsPage({
   // Get all coaches
   const { data: coaches } = await supabase
     .from('coaches')
-    .select('id, name, is_owner, pay_period')
+    .select('id, name, is_owner, pay_period, hourly_rate')
     .eq('status', 'active')
     .order('name')
 
@@ -38,7 +38,9 @@ export default async function AdminEarningsPage({
       const coachEarnings = (earnings ?? []).filter(e => e.coach_id === coach.id)
       const owed = coachEarnings.filter(e => e.status === 'owed').reduce((s, e) => s + e.amount_cents, 0)
       const paid = coachEarnings.filter(e => e.status === 'paid').reduce((s, e) => s + e.amount_cents, 0)
-      return { ...coach, owed, paid, total: owed + paid }
+      const groupRate = (coach.hourly_rate as { group_rate_cents?: number } | null)?.group_rate_cents ?? 0
+      const privateRate = (coach.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0
+      return { ...coach, owed, paid, total: owed + paid, groupRate, privateRate }
     })
 
   return (
@@ -68,9 +70,14 @@ export default async function AdminEarningsPage({
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold">{coach.name}</p>
                 <span className="text-xs text-muted-foreground">
-                  {coach.pay_period === 'end_of_term' ? 'Term pay' : 'Weekly pay'}
+                  {coach.pay_period === 'end_of_term' ? 'Term pay' : coach.pay_period === 'fortnightly' ? 'Fortnightly pay' : 'Weekly pay'}
                 </span>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {coach.groupRate > 0 && `Group: $${(coach.groupRate / 100).toFixed(2)}/hr`}
+                {coach.groupRate > 0 && coach.privateRate > 0 && ' · '}
+                {coach.privateRate > 0 && `Private: $${(coach.privateRate / 100).toFixed(2)}/hr`}
+              </p>
               <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                 <div>
                   <p className="text-lg font-bold text-orange-600">${(coach.owed / 100).toFixed(2)}</p>

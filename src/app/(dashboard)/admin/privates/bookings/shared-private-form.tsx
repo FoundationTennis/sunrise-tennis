@@ -79,7 +79,7 @@ export function SharedPrivateForm({ families, coaches }: Props) {
               <Label htmlFor="shared_coach" className="text-xs">Coach</Label>
               <select id="shared_coach" name="coach_id" required className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                 <option value="">Select...</option>
-                {coaches.map(c => <option key={c.id} value={c.id}>{c.name} - ${(c.rate / 100).toFixed(0)}/hr</option>)}
+                {[...coaches].filter(c => c.rate > 0).sort((a, b) => b.rate - a.rate || a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name.split(' ')[0]} - ${(c.rate / 100).toFixed(0)}/hr</option>)}
               </select>
             </div>
             <div>

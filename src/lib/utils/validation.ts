@@ -404,7 +404,7 @@ export const updateCompPlayerFormSchema = z.object({
 
 // ── Private Bookings ──────────────────────────────────────────────────
 
-export const payPeriodSchema = z.enum(['weekly', 'end_of_term'])
+export const payPeriodSchema = z.enum(['weekly', 'fortnightly', 'end_of_term'])
 export const approvalStatusSchema = z.enum(['pending', 'approved', 'declined', 'auto'])
 
 export const coachAvailabilityFormSchema = z.object({

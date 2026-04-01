@@ -227,6 +227,7 @@ export function validateBookingConstraints(
 /**
  * Get the pay period key for a date.
  * Weekly: '2026-W14' (ISO week number)
+ * Fortnightly: '2026-F07' (fortnight number, 1-based)
  * End of term: '2026-T2' (SA school term)
  */
 export function getPayPeriodKey(date: Date, payPeriod: string): string {
@@ -241,12 +242,19 @@ export function getPayPeriodKey(date: Date, payPeriod: string): string {
     return `${year}-T4`
   }
 
-  // Weekly: ISO week number
+  // ISO week number (shared by weekly and fortnightly)
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
   const dayNum = d.getUTCDay() || 7
   d.setUTCDate(d.getUTCDate() + 4 - dayNum)
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
   const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+
+  if (payPeriod === 'fortnightly') {
+    const fnNo = Math.ceil(weekNo / 2)
+    return `${d.getUTCFullYear()}-F${String(fnNo).padStart(2, '0')}`
+  }
+
+  // Weekly
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`
 }
 

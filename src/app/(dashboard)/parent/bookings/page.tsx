@@ -85,12 +85,16 @@ export default async function ParentBookingsPage({
 
       <BookingWizard
         players={(players ?? []).map(p => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, ball_color: p.ball_color }))}
-        coaches={(coaches ?? []).map(c => ({
-          id: c.id,
-          name: c.name,
-          is_owner: c.is_owner ?? false,
-          rate_per_hour_cents: (c.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0,
-        }))}
+        coaches={(coaches ?? [])
+          .map(c => ({
+            id: c.id,
+            name: c.name.split(' ')[0],
+            is_owner: c.is_owner ?? false,
+            rate_per_hour_cents: (c.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0,
+          }))
+          .filter(c => c.rate_per_hour_cents > 0)
+          .sort((a, b) => b.rate_per_hour_cents - a.rate_per_hour_cents || a.name.localeCompare(b.name))
+        }
         allowedCoaches={(allowedCoaches ?? []).map(a => ({
           player_id: a.player_id,
           coach_id: a.coach_id,
