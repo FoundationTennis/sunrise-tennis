@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/status-badge'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
 import { Swords, Plus, AlertTriangle, CalendarClock } from 'lucide-react'
+import { AllPlayersList } from './all-players-list'
 
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null
@@ -23,12 +24,12 @@ export default async function AdminCompetitionsPage() {
   // Get team + player counts per competition
   const { data: teams } = await supabase
     .from('teams')
-    .select('id, competition_id, team_size_required')
+    .select('id, competition_id, team_size_required, name, division, gender')
     .not('competition_id', 'is', null)
 
   const { data: players } = await supabase
     .from('competition_players')
-    .select('id, team_id, registration_status')
+    .select('id, team_id, first_name, last_name, role, registration_status, player_id')
 
   // Build stats per competition
   const teamsByComp = new Map<string, typeof teams>()
@@ -44,6 +45,36 @@ export default async function AdminCompetitionsPage() {
     const arr = playersByTeam.get(p.team_id) ?? []
     arr.push(p)
     playersByTeam.set(p.team_id, arr)
+  })
+
+  // Build lookup for team → competition name
+  const compById = new Map<string, string>()
+  const compTypeById = new Map<string, string>()
+  competitions?.forEach((c) => {
+    compById.set(c.id, c.name)
+    compTypeById.set(c.id, c.type ?? 'external')
+  })
+
+  const teamById = new Map<string, (typeof teams extends (infer T)[] | null ? T : never)>()
+  teams?.forEach((t) => { teamById.set(t.id, t) })
+
+  // Build flat player list for AllPlayersList
+  const allCompPlayers = (players ?? []).map((p) => {
+    const team = teamById.get(p.team_id)
+    const compId = team?.competition_id ?? ''
+    return {
+      id: p.id,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      role: p.role,
+      registration_status: p.registration_status,
+      player_id: p.player_id,
+      team_name: team?.name ?? 'Unknown',
+      team_division: team?.division ?? null,
+      team_gender: team?.gender ?? null,
+      comp_name: compById.get(compId) ?? 'Unknown',
+      comp_type: compTypeById.get(compId) ?? 'external',
+    }
   })
 
   return (
@@ -143,6 +174,11 @@ export default async function AdminCompetitionsPage() {
             }
           />
         </div>
+      )}
+
+      {/* All players list */}
+      {allCompPlayers.length > 0 && (
+        <AllPlayersList players={allCompPlayers} />
       )}
     </div>
   )

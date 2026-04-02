@@ -5,7 +5,8 @@ import { PageHeader } from '@/components/page-header'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, AlertCircle, CheckCircle, Users, AlertTriangle } from 'lucide-react'
+import { Plus, AlertCircle, CheckCircle } from 'lucide-react'
+import { TeamWorkspace } from './team-workspace'
 
 function formatDate(d: string | null): string {
   if (!d) return '-'
@@ -39,22 +40,46 @@ export default async function CompetitionDetailPage({
 
   if (!competition) notFound()
 
-  // Get players per team (including names for inline roster)
+  // Get players per team
   const teamIds = teams?.map((t) => t.id) ?? []
   const { data: allPlayers } = teamIds.length > 0
     ? await supabase
         .from('competition_players')
-        .select('id, team_id, first_name, last_name, registration_status, role')
+        .select('id, team_id, first_name, last_name, registration_status, role, player_id, sort_order')
         .in('team_id', teamIds)
         .order('sort_order')
         .order('first_name')
     : { data: [] }
 
+  // Build team data for workspace
   const playersByTeam = new Map<string, typeof allPlayers>()
   allPlayers?.forEach((p) => {
     const arr = playersByTeam.get(p.team_id) ?? []
     arr.push(p)
     playersByTeam.set(p.team_id, arr)
+  })
+
+  const teamsWithPlayers = (teams ?? []).map((t) => {
+    const coach = t.coaches as unknown as { name: string } | null
+    return {
+      id: t.id,
+      name: t.name,
+      division: t.division,
+      gender: t.gender,
+      age_group: t.age_group,
+      team_size_required: t.team_size_required,
+      nomination_status: t.nomination_status ?? 'draft',
+      coach_name: coach?.name ?? null,
+      players: (playersByTeam.get(t.id) ?? []).map((p) => ({
+        id: p.id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        role: p.role,
+        registration_status: p.registration_status,
+        player_id: p.player_id,
+        sort_order: p.sort_order,
+      })),
+    }
   })
 
   return (
@@ -63,7 +88,17 @@ export default async function CompetitionDetailPage({
         title={competition.name}
         description={competition.season}
         breadcrumbs={[{ label: 'Competitions', href: '/admin/competitions' }]}
-        action={<StatusBadge status={competition.status ?? 'active'} />}
+        action={
+          <div className="flex items-center gap-2">
+            <StatusBadge status={competition.status ?? 'active'} />
+            <Button asChild size="sm">
+              <Link href={`/admin/competitions/${competitionId}/teams/new`}>
+                <Plus className="size-4" />
+                Add Team
+              </Link>
+            </Button>
+          </div>
+        }
       />
 
       {error && (
@@ -109,89 +144,22 @@ export default async function CompetitionDetailPage({
         </CardContent>
       </Card>
 
-      {/* Teams */}
-      <div className="mt-6 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Teams</h2>
-        <Button asChild size="sm">
-          <Link href={`/admin/competitions/${competitionId}/teams/new`}>
-            <Plus className="size-4" />
-            Add Team
-          </Link>
-        </Button>
-      </div>
-
-      {teams && teams.length > 0 ? (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {teams.map((team) => {
-            const coach = team.coaches as unknown as { name: string } | null
-            const teamPlayers = playersByTeam.get(team.id) ?? []
-            const total = teamPlayers.length
-            const registered = teamPlayers.filter((p) => p.registration_status === 'registered').length
-            const required = team.team_size_required ?? 0
-            const hasGaps = required > 0 && total < required
-
-            return (
-              <Link
-                key={team.id}
-                href={`/admin/competitions/${competitionId}/teams/${team.id}`}
-                className="block rounded-lg border border-border bg-card p-4 shadow-card transition-colors hover:border-primary/30"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">{team.name}</p>
-                    {team.division && (
-                      <p className="text-xs text-muted-foreground">{team.division}</p>
-                    )}
-                  </div>
-                  <StatusBadge status={team.nomination_status ?? 'draft'} />
-                </div>
-
-                <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    <Users className="size-3" />
-                    {total}{required > 0 ? `/${required}` : ''} players
-                  </span>
-                  {registered > 0 && (
-                    <span className="text-success">{registered} reg</span>
-                  )}
-                  {coach && <span>{coach.name}</span>}
-                </div>
-
-                {hasGaps && (
-                  <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-danger-light px-2 py-0.5 text-xs font-medium text-danger">
-                    <AlertTriangle className="size-3" />
-                    {required - total} gap{required - total !== 1 ? 's' : ''}
-                  </span>
-                )}
-
-                {/* Inline player roster */}
-                {teamPlayers.length > 0 && (
-                  <div className="mt-3 border-t border-border/50 pt-2">
-                    <ul className="space-y-0.5">
-                      {teamPlayers.slice(0, 6).map((tp) => (
-                        <li key={tp.id} className="flex items-center justify-between text-xs">
-                          <span className="truncate text-foreground/80">
-                            {tp.first_name}{tp.last_name ? ` ${tp.last_name}` : ''}
-                          </span>
-                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                            <span className={`size-1.5 rounded-full ${tp.registration_status === 'registered' ? 'bg-emerald-500' : tp.registration_status === 'pending' ? 'bg-amber-400' : 'bg-gray-300'}`} />
-                            <span className="text-muted-foreground capitalize">{tp.role.replace('_', ' ')}</span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    {teamPlayers.length > 6 && (
-                      <p className="mt-1 text-[10px] text-muted-foreground">+ {teamPlayers.length - 6} more</p>
-                    )}
-                  </div>
-                )}
-              </Link>
-            )
-          })}
+      {/* Team Workspace */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Teams</h2>
+          <p className="text-xs text-muted-foreground">
+            Drag players between teams to move them
+          </p>
         </div>
-      ) : (
-        <p className="mt-3 text-sm text-muted-foreground">No teams yet. Add a team to get started.</p>
-      )}
+        {teamsWithPlayers.length > 0 ? (
+          <TeamWorkspace competitionId={competitionId} initialTeams={teamsWithPlayers} />
+        ) : (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No teams yet. Add a team to get started.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

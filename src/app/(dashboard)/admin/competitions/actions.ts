@@ -256,6 +256,129 @@ export async function removeCompPlayer(competitionId: string, teamId: string, fo
   redirect(`/admin/competitions/${competitionId}/teams/${teamId}`)
 }
 
+// ── Remove Player (client-friendly) ───────────────────────────────────
+
+export async function removeCompPlayerDirect(
+  competitionId: string,
+  teamId: string,
+  playerId: string,
+) {
+  await requireAdmin()
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('competition_players')
+    .delete()
+    .eq('id', playerId)
+    .eq('team_id', teamId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath(`/admin/competitions/${competitionId}`)
+  return { success: true }
+}
+
+// ── Move Player Between Teams ──────────────────────────────────────────
+
+export async function moveCompPlayer(
+  competitionId: string,
+  playerId: string,
+  newTeamId: string,
+) {
+  await requireAdmin()
+  const supabase = await createClient()
+
+  // Verify the target team belongs to this competition
+  const { data: team } = await supabase
+    .from('teams')
+    .select('id, competition_id')
+    .eq('id', newTeamId)
+    .single()
+
+  if (!team || team.competition_id !== competitionId) {
+    return { error: 'Invalid target team' }
+  }
+
+  const { error } = await supabase
+    .from('competition_players')
+    .update({ team_id: newTeamId, updated_at: new Date().toISOString() })
+    .eq('id', playerId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath(`/admin/competitions/${competitionId}`)
+  return { success: true }
+}
+
+// ── Delete Team ────────────────────────────────────────────────────────
+
+export async function deleteCompTeam(competitionId: string, teamId: string) {
+  await requireAdmin()
+  const supabase = await createClient()
+
+  // Check if team has players
+  const { count } = await supabase
+    .from('competition_players')
+    .select('id', { count: 'exact', head: true })
+    .eq('team_id', teamId)
+
+  if (count && count > 0) {
+    return { error: 'Cannot delete a team that still has players. Move or remove all players first.' }
+  }
+
+  const { error } = await supabase
+    .from('teams')
+    .delete()
+    .eq('id', teamId)
+    .eq('competition_id', competitionId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath(`/admin/competitions/${competitionId}`)
+  return { success: true }
+}
+
+// ── Quick Add Player (minimal fields) ─────────────────────────────────
+
+export async function quickAddCompPlayer(
+  competitionId: string,
+  teamId: string,
+  firstName: string,
+  lastName: string,
+) {
+  await requireAdmin()
+  const supabase = await createClient()
+
+  if (!firstName.trim()) {
+    return { error: 'First name is required' }
+  }
+
+  const { data, error } = await supabase
+    .from('competition_players')
+    .insert({
+      team_id: teamId,
+      first_name: firstName.trim(),
+      last_name: lastName.trim() || null,
+      role: 'mainstay',
+      registration_status: 'unregistered',
+    })
+    .select('id, first_name, last_name, role, registration_status, player_id, sort_order')
+    .single()
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath(`/admin/competitions/${competitionId}`)
+  return { success: true, player: data }
+}
+
 // ── UTR ────────────────────────────────────────────────────────────────
 
 export async function savePlayerUTR(
