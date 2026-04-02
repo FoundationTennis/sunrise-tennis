@@ -45,7 +45,7 @@ export default async function CompetitionDetailPage({
   const { data: allPlayers } = teamIds.length > 0
     ? await supabase
         .from('competition_players')
-        .select('id, team_id, first_name, last_name, registration_status, role, player_id, sort_order')
+        .select('id, team_id, first_name, last_name, registration_status, role, player_id, sort_order, utr_rating_display')
         .in('team_id', teamIds)
         .order('sort_order')
         .order('first_name')
@@ -78,6 +78,7 @@ export default async function CompetitionDetailPage({
         registration_status: p.registration_status,
         player_id: p.player_id,
         sort_order: p.sort_order,
+        utr_rating_display: p.utr_rating_display ?? null,
       })),
     }
   })

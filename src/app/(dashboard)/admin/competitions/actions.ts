@@ -256,6 +256,55 @@ export async function removeCompPlayer(competitionId: string, teamId: string, fo
   redirect(`/admin/competitions/${competitionId}/teams/${teamId}`)
 }
 
+// ── Update Player Sort Order ───────────────────────────────────────────
+
+export async function updateCompPlayerOrder(
+  competitionId: string,
+  teamId: string,
+  orderedIds: string[],
+) {
+  await requireAdmin()
+  const supabase = await createClient()
+
+  // Batch update sort_order
+  const updates = orderedIds.map((id, i) =>
+    supabase
+      .from('competition_players')
+      .update({ sort_order: i, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('team_id', teamId),
+  )
+  await Promise.all(updates)
+
+  revalidatePath(`/admin/competitions/${competitionId}`)
+  return { success: true }
+}
+
+// ── Update Player UTR (direct, no redirect) ────────────────────────────
+
+export async function updateCompPlayerUTRDirect(
+  compPlayerId: string,
+  utrValue: string,
+) {
+  await requireAdmin()
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('competition_players')
+    .update({
+      utr_rating_display: utrValue.trim() || null,
+      utr_fetched_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', compPlayerId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true }
+}
+
 // ── Remove Player (client-friendly) ───────────────────────────────────
 
 export async function removeCompPlayerDirect(

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Search, Users, LinkIcon, ChevronDown, ChevronRight } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { Search, LinkIcon, X, Pencil } from 'lucide-react'
 import { StatusBadge } from '@/components/status-badge'
+import { updateCompPlayerUTRDirect } from '@/app/(dashboard)/admin/competitions/actions'
 
 interface CompPlayer {
   id: string
@@ -16,18 +17,15 @@ interface CompPlayer {
   team_gender: string | null
   comp_name: string
   comp_type: string
+  utr_rating_display: string | null
 }
 
 type GroupMode = 'competition' | 'name'
 
-// Competition sort order: JSL first, then Fri Juniors, then Sat Juniors, then Seniors
-// Within each, divisions ordered highest first (Div 1 before Div 2)
 function compSortKey(compName: string): number {
   const lower = compName.toLowerCase()
   if (lower.includes('jsl') || lower.includes('junior state league')) return 0
-  if (lower.includes('fri') && lower.includes('junior')) return 1
   if (lower.includes('glenelg') || lower.includes('g&wd') || lower.includes('western district')) return 1
-  if (lower.includes('sat') && lower.includes('junior')) return 2
   if (lower.includes('pennant') || lower.includes('senior')) return 3
   return 4
 }
@@ -37,16 +35,202 @@ function divisionSortKey(division: string | null): number {
   const lower = division.toLowerCase()
   if (lower.includes('premier')) return 0
   if (lower.includes('a1')) return 1
-  // Extract division number
   const match = lower.match(/(\d+)/)
   if (match) return parseInt(match[1], 10) + 1
   return 500
 }
 
+function teamSortKey(player: CompPlayer): number {
+  return compSortKey(player.comp_name) * 1000 + divisionSortKey(player.team_division)
+}
+
+// ── Contact popup ────────────────────────────────────────────────────
+
+interface ContactInfo {
+  player_name: string
+  family_name: string | null
+  primary: { name?: string; phone?: string; role?: string } | null
+  secondary: { name?: string; phone?: string; role?: string } | null
+}
+
+function ContactPopup({
+  playerId,
+  playerName,
+  onClose,
+}: {
+  playerId: string
+  playerName: string
+  onClose: () => void
+}) {
+  const [contact, setContact] = useState<ContactInfo | null>(null)
+  const [loading, setLoading] = useState(true)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch(`/api/admin/player-contact?playerId=${playerId}`)
+      .then((r) => r.json())
+      .then((data) => { setContact(data); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [playerId])
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  return (
+    <div
+      ref={ref}
+      className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-border bg-background shadow-lg"
+    >
+      <div className="flex items-center justify-between border-b border-border/50 px-3 py-2">
+        <span className="text-xs font-semibold text-foreground">{playerName}</span>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <X className="size-3.5" />
+        </button>
+      </div>
+      <div className="px-3 py-2">
+        {loading && <p className="text-xs text-muted-foreground">Loading...</p>}
+        {!loading && !contact && <p className="text-xs text-muted-foreground">No contact found</p>}
+        {!loading && contact && (
+          <div className="space-y-1.5">
+            {contact.primary && (
+              <div>
+                <p className="text-xs font-medium text-foreground">
+                  {contact.primary.name}
+                  {contact.primary.role && (
+                    <span className="ml-1 font-normal text-muted-foreground capitalize">({contact.primary.role})</span>
+                  )}
+                </p>
+                {contact.primary.phone && (
+                  <a href={`tel:${contact.primary.phone}`} className="text-xs text-primary hover:underline">
+                    {contact.primary.phone}
+                  </a>
+                )}
+              </div>
+            )}
+            {contact.secondary && (contact.secondary.name || contact.secondary.phone) && (
+              <div>
+                <p className="text-xs font-medium text-foreground">
+                  {contact.secondary.name}
+                  {contact.secondary.role && (
+                    <span className="ml-1 font-normal text-muted-foreground capitalize">({contact.secondary.role})</span>
+                  )}
+                </p>
+                {contact.secondary.phone && (
+                  <a href={`tel:${contact.secondary.phone}`} className="text-xs text-primary hover:underline">
+                    {contact.secondary.phone}
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Inline UTR Edit ──────────────────────────────────────────────────
+
+function UTRCell({
+  compPlayerId,
+  initialValue,
+}: {
+  compPlayerId: string
+  initialValue: string | null
+}) {
+  const [value, setValue] = useState(initialValue ?? '')
+  const [editing, setEditing] = useState(false)
+  const [saved, setSaved] = useState(initialValue)
+
+  async function save() {
+    setEditing(false)
+    await updateCompPlayerUTRDirect(compPlayerId, value)
+    setSaved(value.trim() || null)
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+        className="h-5 w-14 rounded border border-primary bg-background px-1 text-xs font-mono focus:outline-none"
+        autoFocus
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="group flex items-center gap-1 text-xs"
+    >
+      <span className={saved ? 'font-mono font-medium text-foreground' : 'text-muted-foreground'}>
+        {saved ?? '—'}
+      </span>
+      <Pencil className="size-2.5 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity" />
+    </button>
+  )
+}
+
+// ── Player row ───────────────────────────────────────────────────────
+
+function PlayerRow({ player, showTeam }: { player: CompPlayer; showTeam: boolean }) {
+  const [showContact, setShowContact] = useState(false)
+  const fullName = `${player.first_name}${player.last_name ? ` ${player.last_name}` : ''}`
+
+  return (
+    <tr className="border-b border-border/20 last:border-0 hover:bg-muted/20 transition-colors">
+      <td className="px-4 py-2">
+        <div className="relative inline-block">
+          {player.player_id ? (
+            <button
+              onClick={() => setShowContact((v) => !v)}
+              className="flex items-center gap-1 font-medium text-foreground hover:text-primary transition-colors"
+            >
+              <LinkIcon className="size-2.5 text-success shrink-0" />
+              {fullName}
+            </button>
+          ) : (
+            <span className="font-medium text-foreground">{fullName}</span>
+          )}
+          {showContact && player.player_id && (
+            <ContactPopup
+              playerId={player.player_id}
+              playerName={fullName}
+              onClose={() => setShowContact(false)}
+            />
+          )}
+        </div>
+      </td>
+      {showTeam && (
+        <td className="px-4 py-2 text-sm text-muted-foreground">{player.team_name}</td>
+      )}
+      <td className="px-4 py-2">
+        <StatusBadge status={player.role} />
+      </td>
+      <td className="px-4 py-2">
+        <StatusBadge status={player.registration_status} />
+      </td>
+      <td className="px-4 py-2">
+        <UTRCell compPlayerId={player.id} initialValue={player.utr_rating_display} />
+      </td>
+    </tr>
+  )
+}
+
+// ── Main component ───────────────────────────────────────────────────
+
 export function AllPlayersList({ players }: { players: CompPlayer[] }) {
   const [groupMode, setGroupMode] = useState<GroupMode>('competition')
   const [search, setSearch] = useState('')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   const filtered = useMemo(() => {
     if (!search.trim()) return players
@@ -55,68 +239,51 @@ export function AllPlayersList({ players }: { players: CompPlayer[] }) {
       (p) =>
         p.first_name.toLowerCase().includes(q) ||
         (p.last_name?.toLowerCase().includes(q) ?? false) ||
-        p.team_name.toLowerCase().includes(q) ||
-        p.comp_name.toLowerCase().includes(q),
+        p.team_name.toLowerCase().includes(q),
     )
   }, [players, search])
 
-  const grouped = useMemo(() => {
+  const sorted = useMemo(() => {
     if (groupMode === 'name') {
-      // Group alphabetically by last name, then first name
-      const sorted = [...filtered].sort((a, b) => {
+      return [...filtered].sort((a, b) => {
         const lastA = (a.last_name ?? '').toLowerCase()
         const lastB = (b.last_name ?? '').toLowerCase()
         if (lastA !== lastB) return lastA.localeCompare(lastB)
         return a.first_name.toLowerCase().localeCompare(b.first_name.toLowerCase())
       })
-      // Single flat group
-      return [{ key: 'All Players', players: sorted }]
     }
-
-    // Group by competition + division
-    const groups = new Map<string, CompPlayer[]>()
-    for (const p of filtered) {
-      const key = `${p.comp_name} — ${p.team_name}`
-      const arr = groups.get(key) ?? []
-      arr.push(p)
-      groups.set(key, arr)
-    }
-
-    // Sort groups by comp order, then division
-    return Array.from(groups.entries())
-      .sort(([keyA, playersA], [keyB, playersB]) => {
-        const compA = playersA[0].comp_name
-        const compB = playersB[0].comp_name
-        const compOrder = compSortKey(compA) - compSortKey(compB)
-        if (compOrder !== 0) return compOrder
-        // Same comp — sort by division
-        const divA = playersA[0].team_division
-        const divB = playersB[0].team_division
-        return divisionSortKey(divA) - divisionSortKey(divB)
-      })
-      .map(([key, groupPlayers]) => ({
-        key,
-        players: groupPlayers.sort((a, b) =>
-          a.first_name.toLowerCase().localeCompare(b.first_name.toLowerCase()),
-        ),
-      }))
+    // By team: sort by comp order, then division, then player first name
+    return [...filtered].sort((a, b) => {
+      const teamOrder = teamSortKey(a) - teamSortKey(b)
+      if (teamOrder !== 0) return teamOrder
+      if (a.team_name !== b.team_name) return a.team_name.localeCompare(b.team_name)
+      return a.first_name.toLowerCase().localeCompare(b.first_name.toLowerCase())
+    })
   }, [filtered, groupMode])
 
-  const toggleCollapse = (key: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
+  // Build row list: when grouping by team, insert group header rows
+  const rows = useMemo(() => {
+    if (groupMode === 'name') {
+      return sorted.map((p) => ({ type: 'player' as const, player: p }))
+    }
+    const result: Array<{ type: 'header'; label: string } | { type: 'player'; player: CompPlayer }> = []
+    let lastTeam = ''
+    for (const p of sorted) {
+      const teamKey = p.team_name
+      if (teamKey !== lastTeam) {
+        result.push({ type: 'header', label: p.team_name })
+        lastTeam = teamKey
+      }
+      result.push({ type: 'player', player: p })
+    }
+    return result
+  }, [sorted, groupMode])
 
   return (
     <div className="mt-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold text-foreground">All Competition Players</h2>
         <div className="flex items-center gap-3">
-          {/* Group toggle */}
           <div className="flex rounded-lg border border-border bg-muted/30 p-0.5 text-xs">
             <button
               onClick={() => setGroupMode('competition')}
@@ -131,8 +298,6 @@ export function AllPlayersList({ players }: { players: CompPlayer[] }) {
               By Name
             </button>
           </div>
-
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -150,85 +315,47 @@ export function AllPlayersList({ players }: { players: CompPlayer[] }) {
         {filtered.length} player{filtered.length !== 1 ? 's' : ''} across all competitions
       </p>
 
-      <div className="mt-4 space-y-2">
-        {grouped.map((group) => {
-          const isCollapsed = collapsed.has(group.key)
-          return (
-            <div key={group.key} className="rounded-lg border border-border bg-card shadow-card overflow-hidden">
-              {/* Group header */}
-              {groupMode === 'competition' && (
-                <button
-                  onClick={() => toggleCollapse(group.key)}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-muted/30 transition-colors"
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="size-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="size-4 text-muted-foreground" />
-                  )}
-                  <span>{group.key}</span>
-                  <span className="ml-auto inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
-                    <Users className="size-3" />
-                    {group.players.length}
-                  </span>
-                </button>
+      <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card shadow-card">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border/50 bg-muted/30 text-xs text-muted-foreground">
+              <th className="px-4 py-2.5 text-left font-medium">Player</th>
+              {groupMode === 'name' && (
+                <th className="px-4 py-2.5 text-left font-medium">Team</th>
               )}
-
-              {/* Player rows */}
-              {!isCollapsed && (
-                <div className={groupMode === 'competition' ? 'border-t border-border/50' : ''}>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border/30 text-xs text-muted-foreground">
-                        <th className="px-4 py-2 text-left font-medium">Player</th>
-                        {groupMode === 'name' && (
-                          <th className="px-4 py-2 text-left font-medium">Team</th>
-                        )}
-                        <th className="px-4 py-2 text-left font-medium">Role</th>
-                        <th className="px-4 py-2 text-left font-medium">Registration</th>
-                        <th className="px-4 py-2 text-left font-medium">Linked</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.players.map((p) => (
-                        <tr key={p.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 transition-colors">
-                          <td className="px-4 py-2 font-medium text-foreground">
-                            {p.first_name}{p.last_name ? ` ${p.last_name}` : ''}
-                          </td>
-                          {groupMode === 'name' && (
-                            <td className="px-4 py-2 text-muted-foreground">
-                              {p.comp_name} — {p.team_name}
-                            </td>
-                          )}
-                          <td className="px-4 py-2">
-                            <StatusBadge status={p.role} />
-                          </td>
-                          <td className="px-4 py-2">
-                            <StatusBadge status={p.registration_status} />
-                          </td>
-                          <td className="px-4 py-2">
-                            {p.player_id ? (
-                              <span className="inline-flex items-center gap-1 text-xs text-success">
-                                <LinkIcon className="size-3" />
-                                Linked
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )
-        })}
-
-        {grouped.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">No players found.</p>
-        )}
+              <th className="px-4 py-2.5 text-left font-medium">Role</th>
+              <th className="px-4 py-2.5 text-left font-medium">Registration</th>
+              <th className="px-4 py-2.5 text-left font-medium">UTR</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              if (row.type === 'header') {
+                return (
+                  <tr key={`h-${row.label}-${i}`} className="bg-muted/20 border-b border-border/30">
+                    <td colSpan={5} className="px-4 py-1.5 text-xs font-semibold text-muted-foreground">
+                      {row.label}
+                    </td>
+                  </tr>
+                )
+              }
+              return (
+                <PlayerRow
+                  key={row.player.id}
+                  player={row.player}
+                  showTeam={groupMode === 'name'}
+                />
+              )
+            })}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  No players found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   )
