@@ -13,7 +13,6 @@ import {
 const navItems = [
   { href: '/coach', label: 'Overview', icon: LayoutDashboard },
   { href: '/coach/schedule', label: 'Schedule', icon: Calendar },
-  { href: '/coach/programs', label: 'Programs', icon: GraduationCap },
   { href: '/coach/availability', label: 'Availability', icon: Clock },
   { href: '/coach/privates', label: 'Privates', icon: Users },
   { href: '/coach/earnings', label: 'Earnings', icon: DollarSign },

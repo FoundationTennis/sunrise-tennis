@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Calendar, List, Layers, Tag, MapPin } from 'lucide-react'
+import { Calendar, List, Layers, Tag, MapPin, Users, X, ExternalLink, Eye, CloudRain } from 'lucide-react'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -26,7 +26,6 @@ const LEVEL_COLORS: Record<string, string> = {
   competitive: 'bg-primary/15 border-primary/30',
 }
 
-/** Button colors for level filter pills */
 const LEVEL_PILL_STYLES: Record<string, { active: string; inactive: string }> = {
   red:    { active: 'bg-ball-red text-white shadow-sm',    inactive: 'bg-ball-red/15 text-ball-red hover:bg-ball-red/25' },
   orange: { active: 'bg-ball-orange text-white shadow-sm', inactive: 'bg-ball-orange/15 text-ball-orange hover:bg-ball-orange/25' },
@@ -57,6 +56,20 @@ type Program = {
   venue_id: string | null
   venues: { id: string; name: string } | null
   program_roster: { count: number }[]
+}
+
+export type SessionData = {
+  id: string
+  programId: string | null
+  date: string
+  startTime: string | null
+  endTime: string | null
+  status: string
+  coachName: string
+  venueName: string
+  bookedCount: number
+  leadCoach: string
+  assistantCoaches: string[]
 }
 
 type Tab = 'calendar' | 'list' | 'level' | 'type' | 'venue'
@@ -107,6 +120,49 @@ function ProgramCards({ programs }: { programs: Program[] }) {
   )
 }
 
+function sessionsToCalendarEvents(sessions: SessionData[], programs: Program[]): CalendarEvent[] {
+  const programMap = new Map(programs.map(p => [p.id, p]))
+
+  return sessions
+    .filter(s => s.startTime && s.endTime && s.date)
+    .map(s => {
+      const program = s.programId ? programMap.get(s.programId) : null
+      const enrolled = program?.program_roster?.[0]?.count ?? 0
+      const capacity = program?.max_capacity
+      const capacityLabel = capacity ? `${s.bookedCount || enrolled}/${capacity}` : undefined
+      let capacityColor: 'green' | 'amber' | 'red' | 'blue' | undefined
+      if (capacity) {
+        const ratio = (s.bookedCount || enrolled) / capacity
+        if (ratio > 1) capacityColor = 'blue'
+        else if (ratio >= 1) capacityColor = 'red'
+        else if (ratio >= 0.75) capacityColor = 'amber'
+        else capacityColor = 'green'
+      }
+
+      const eventDate = new Date(s.date + 'T12:00:00')
+      const dayOfWeek = eventDate.getDay()
+
+      return {
+        id: s.id,
+        title: program?.name ?? 'Session',
+        subtitle: s.coachName,
+        dayOfWeek,
+        startTime: s.startTime!,
+        endTime: s.endTime!,
+        color: LEVEL_COLORS[program?.level ?? ''] ?? 'bg-primary/15 border-primary/30',
+        date: s.date,
+        sessionId: s.id,
+        programId: s.programId ?? undefined,
+        sessionStatus: s.status,
+        coachName: s.coachName,
+        bookedCount: s.bookedCount,
+        capacityLabel,
+        capacityColor,
+        assistantCoaches: s.assistantCoaches,
+      } satisfies CalendarEvent
+    })
+}
+
 function toCalendarEvents(programs: Program[]): CalendarEvent[] {
   return programs
     .filter(p => p.day_of_week != null && p.start_time && p.end_time)
@@ -122,30 +178,117 @@ function toCalendarEvents(programs: Program[]): CalendarEvent[] {
     }))
 }
 
-/**
- * Filter programs by level, including competition programs that span
- * multiple levels (e.g. "red/orange comp" shows under both red and orange).
- */
 function filterByLevel(programs: Program[], level: string): Program[] {
   return programs.filter(p => {
     if (p.level === level) return true
-    // Check if program name contains the level (for multi-level comps like "Red/Orange")
     const nameLower = p.name.toLowerCase()
     return nameLower.includes(level.toLowerCase())
   })
 }
 
-export function ProgramViews({ programs }: { programs: Program[] }) {
+/** Admin session popup content */
+function AdminSessionPopup({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
+  const STATUS_STYLES: Record<string, string> = {
+    scheduled: 'bg-muted text-muted-foreground',
+    completed: 'bg-success/10 text-success',
+    cancelled: 'bg-danger/10 text-danger',
+    rained_out: 'bg-blue-100 text-blue-700',
+  }
+
+  return (
+    <div className="p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-foreground leading-tight">{event.title}</h3>
+          {event.sessionStatus && (
+            <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${STATUS_STYLES[event.sessionStatus] ?? STATUS_STYLES.scheduled}`}>
+              {event.sessionStatus.replace('_', ' ')}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={onClose}
+          className="flex size-6 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+
+      <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+        {event.bookedCount !== undefined && (
+          <div className="flex items-center gap-2">
+            <Users className="size-3.5 shrink-0" />
+            <span>{event.bookedCount} player{event.bookedCount !== 1 ? 's' : ''} booked</span>
+          </div>
+        )}
+        {event.coachName && (
+          <div className="flex items-center gap-2">
+            <span className="size-3.5 shrink-0 text-center text-xs font-bold">L</span>
+            <span>{event.coachName}</span>
+          </div>
+        )}
+        {event.assistantCoaches && event.assistantCoaches.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="size-3.5 shrink-0 text-center text-xs font-bold">A</span>
+            <span>{event.assistantCoaches.join(', ')}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 space-y-2">
+        <div className="flex gap-2">
+          {event.sessionId && event.programId && (
+            <Link
+              href={`/admin/programs/${event.programId}/sessions/${event.sessionId}`}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#2B5EA7] px-3 py-2 text-sm font-medium text-white shadow-sm transition-all hover:brightness-110"
+            >
+              <Eye className="size-3.5" />
+              Session
+            </Link>
+          )}
+          {event.programId && (
+            <Link
+              href={`/admin/programs/${event.programId}`}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-all hover:bg-muted/50"
+          >
+            <ExternalLink className="size-3.5" />
+            Program
+          </Link>
+        )}
+        </div>
+        {event.sessionStatus === 'scheduled' && event.sessionId && event.programId && (
+          <Link
+            href={`/admin/programs/${event.programId}/sessions/${event.sessionId}?rainout=1`}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-all hover:bg-blue-100"
+          >
+            <CloudRain className="size-3.5" />
+            Rained Out
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function ProgramViews({ programs, sessions }: { programs: Program[]; sessions?: SessionData[] }) {
   const [tab, setTab] = useState<Tab>('calendar')
   const [levelFilter, setLevelFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [venueFilter, setVenueFilter] = useState('')
 
+  const calendarEvents = useMemo(() => {
+    // If sessions are provided, show actual sessions on the calendar
+    if (sessions && sessions.length > 0) {
+      return sessionsToCalendarEvents(sessions, programs)
+    }
+    // Fallback to recurring program slots
+    return toCalendarEvents(programs)
+  }, [programs, sessions])
+
   const levels = useMemo(() => {
     const lvls = new Set<string>()
     programs.forEach(p => {
       if (p.level) lvls.add(p.level)
-      // Also extract levels mentioned in program names for multi-level comps
       const nameLower = p.name.toLowerCase()
       for (const l of ['red', 'orange', 'green', 'yellow', 'blue']) {
         if (nameLower.includes(l)) lvls.add(l)
@@ -193,10 +336,16 @@ export function ProgramViews({ programs }: { programs: Program[] }) {
       {/* Calendar tab */}
       {tab === 'calendar' && (
         <div className="mt-4">
-          {toCalendarEvents(programs).length > 0 ? (
-            <WeeklyCalendar events={toCalendarEvents(programs)} />
+          {calendarEvents.length > 0 ? (
+            <WeeklyCalendar
+              events={calendarEvents}
+              renderPopup={sessions && sessions.length > 0
+                ? (event, onClose) => <AdminSessionPopup event={event} onClose={onClose} />
+                : undefined
+              }
+            />
           ) : (
-            <p className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">No scheduled programs.</p>
+            <p className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">No scheduled sessions this term.</p>
           )}
         </div>
       )}
@@ -255,7 +404,7 @@ export function ProgramViews({ programs }: { programs: Program[] }) {
         </>
       )}
 
-      {/* Level tab — color-coded pill buttons */}
+      {/* Level tab */}
       {tab === 'level' && (
         <div className="mt-4">
           <div className="mb-4 flex flex-wrap gap-2">
@@ -286,7 +435,7 @@ export function ProgramViews({ programs }: { programs: Program[] }) {
         </div>
       )}
 
-      {/* Type tab — colored pill buttons */}
+      {/* Type tab */}
       {tab === 'type' && (
         <div className="mt-4">
           <div className="mb-4 flex flex-wrap gap-2">
@@ -317,7 +466,7 @@ export function ProgramViews({ programs }: { programs: Program[] }) {
         </div>
       )}
 
-      {/* Venue tab — pill buttons */}
+      {/* Venue tab */}
       {tab === 'venue' && (
         <div className="mt-4">
           <div className="mb-4 flex flex-wrap gap-2">

@@ -457,3 +457,165 @@ export async function completePrivateSession(sessionId: string) {
   revalidatePath('/coach/privates')
   redirect(`/coach/privates/${sessionId}?success=Session+completed`)
 }
+
+// ── Coach Attendance (assistant coaches) ──────────────────────────────
+
+export async function markCoachAttendance(sessionId: string, formData: FormData) {
+  const { user } = await requireCoach()
+  const supabase = await createClient()
+
+  const { checkRateLimitAsync } = await import('@/lib/utils/rate-limit')
+  if (!await checkRateLimitAsync(`coach-att:${user.id}`, 20, 60_000)) {
+    redirect(`/coach/schedule/${sessionId}?error=${encodeURIComponent('Too many requests.')}`)
+  }
+
+  const entries: { coachId: string; status: string }[] = []
+  formData.forEach((value, key) => {
+    if (key.startsWith('coach_attendance_')) {
+      const coachId = key.replace('coach_attendance_', '')
+      const status = value as string
+      if (status === 'present' || status === 'absent') {
+        entries.push({ coachId, status })
+      }
+    }
+  })
+
+  for (const entry of entries) {
+    await supabase
+      .from('session_coach_attendances')
+      .upsert(
+        { session_id: sessionId, coach_id: entry.coachId, status: entry.status, marked_by: user.id },
+        { onConflict: 'session_id,coach_id' }
+      )
+  }
+
+  revalidatePath(`/coach/schedule/${sessionId}`)
+  redirect(`/coach/schedule/${sessionId}`)
+}
+
+// ── Session Notes (lead coach + admin visible) ────────────────────────
+
+export async function createSessionNote(sessionId: string, formData: FormData) {
+  const { user, coachId } = await requireCoach()
+  const supabase = await createClient()
+
+  if (!coachId) {
+    redirect(`/coach/schedule/${sessionId}?error=${encodeURIComponent('Coach profile not linked.')}`)
+  }
+
+  const { checkRateLimitAsync } = await import('@/lib/utils/rate-limit')
+  if (!await checkRateLimitAsync(`session-note:${user.id}`, 10, 60_000)) {
+    redirect(`/coach/schedule/${sessionId}?error=${encodeURIComponent('Too many requests.')}`)
+  }
+
+  const notes = (formData.get('session_notes') as string)?.trim()
+  if (!notes) {
+    redirect(`/coach/schedule/${sessionId}?error=${encodeURIComponent('Notes cannot be empty.')}`)
+  }
+
+  // Upsert: session-level note has player_id = null
+  const { data: existing } = await supabase
+    .from('lesson_notes')
+    .select('id')
+    .eq('session_id', sessionId)
+    .is('player_id', null)
+    .eq('coach_id', coachId!)
+    .single()
+
+  if (existing) {
+    await supabase
+      .from('lesson_notes')
+      .update({ notes })
+      .eq('id', existing.id)
+  } else {
+    await supabase
+      .from('lesson_notes')
+      .insert({
+        session_id: sessionId,
+        player_id: null,
+        coach_id: coachId,
+        notes,
+      })
+  }
+
+  revalidatePath(`/coach/schedule/${sessionId}`)
+  redirect(`/coach/schedule/${sessionId}`)
+}
+
+// ── Walk-in Player Search ─────────────────────────────────────────────
+
+export async function searchPlayersForCoach(query: string) {
+  'use server'
+  const { user: _user } = await requireCoach()
+  const supabase = await createClient()
+
+  if (!query || query.length < 2) return []
+
+  const { data } = await supabase.rpc('search_players_for_coach', { query })
+  return data ?? []
+}
+
+// ── Walk-in Player Add ────────────────────────────────────────────────
+
+export async function addWalkInPlayer(sessionId: string, playerId: string, charge: boolean) {
+  const { user } = await requireCoach()
+  const supabase = await createClient()
+
+  const { checkRateLimitAsync } = await import('@/lib/utils/rate-limit')
+  if (!await checkRateLimitAsync(`walkin:${user.id}`, 20, 60_000)) {
+    redirect(`/coach/schedule/${sessionId}?error=${encodeURIComponent('Too many requests.')}`)
+  }
+
+  // Create attendance record
+  await supabase
+    .from('attendances')
+    .upsert(
+      { session_id: sessionId, player_id: playerId, status: 'present' },
+      { onConflict: 'session_id,player_id' }
+    )
+
+  // Optionally create a charge at casual session rate
+  if (charge) {
+    // Get session's program for pricing
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('program_id')
+      .eq('id', sessionId)
+      .single()
+
+    if (session?.program_id) {
+      // Get player's family
+      const { data: player } = await supabase
+        .from('players')
+        .select('family_id')
+        .eq('id', playerId)
+        .single()
+
+      if (player?.family_id) {
+        // Get session price
+        const { getSessionPrice } = await import('@/lib/utils/billing')
+        const priceCents = await getSessionPrice(supabase, player.family_id, session.program_id, 'group')
+
+        if (priceCents > 0) {
+          const { createCharge } = await import('@/lib/utils/billing')
+          await createCharge(supabase, {
+            familyId: player.family_id,
+            playerId,
+            type: 'casual',
+            sourceType: 'attendance',
+            sourceId: sessionId,
+            sessionId,
+            programId: session.program_id,
+            description: 'Walk-in session',
+            amountCents: priceCents,
+            status: 'confirmed',
+            createdBy: user.id,
+          })
+        }
+      }
+    }
+  }
+
+  revalidatePath(`/coach/schedule/${sessionId}`)
+  redirect(`/coach/schedule/${sessionId}`)
+}

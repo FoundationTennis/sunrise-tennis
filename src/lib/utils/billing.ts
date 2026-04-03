@@ -205,3 +205,13 @@ export async function getExistingSessionCharge(
 
   return data
 }
+
+// ── Coach Pay ──────────────────────────────────────────────────────────
+
+/**
+ * Calculate group session coach pay based on hourly rate and session duration.
+ * Returns pay in cents.
+ */
+export function calculateGroupCoachPay(groupRateCents: number, durationMin: number): number {
+  return Math.round(groupRateCents * durationMin / 60)
+}

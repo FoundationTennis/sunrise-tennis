@@ -1067,7 +1067,7 @@ export type Database = {
           id: string
           next_plan: string | null
           notes: string | null
-          player_id: string
+          player_id: string | null
           progress: string | null
           session_id: string
           video_url: string | null
@@ -1080,7 +1080,7 @@ export type Database = {
           id?: string
           next_plan?: string | null
           notes?: string | null
-          player_id: string
+          player_id?: string | null
           progress?: string | null
           session_id: string
           video_url?: string | null
@@ -1093,7 +1093,7 @@ export type Database = {
           id?: string
           next_plan?: string | null
           notes?: string | null
-          player_id?: string
+          player_id?: string | null
           progress?: string | null
           session_id?: string
           video_url?: string | null
@@ -1690,6 +1690,48 @@ export type Database = {
           },
         ]
       }
+      session_coach_attendances: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          id: string
+          marked_by: string | null
+          session_id: string
+          status: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          id?: string
+          marked_by?: string | null
+          session_id: string
+          status?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          id?: string
+          marked_by?: string | null
+          session_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_coach_attendances_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_coach_attendances_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           cancellation_reason: string | null
@@ -2115,6 +2157,15 @@ export type Database = {
       recalculate_family_balance: {
         Args: { target_family_id: string }
         Returns: number
+      }
+      search_players_for_coach: {
+        Args: { query: string }
+        Returns: {
+          ball_color: string
+          first_name: string
+          id: string
+          last_name: string
+        }[]
       }
     }
     Enums: {

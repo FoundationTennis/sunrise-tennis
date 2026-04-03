@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, X, Clock, Users, DollarSign, CheckCircle, ExternalLink, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Clock, Users, DollarSign, CheckCircle, ExternalLink, Loader2, CalendarDays, List } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { getTermInfo, getNextTermStart } from '@/lib/utils/school-terms'
 import { formatCurrency } from '@/lib/utils/currency'
@@ -50,6 +50,18 @@ export interface CalendarEvent {
   bookingId?: string
   /** Per-player attendance status for this session: playerId → 'present'|'excused'|'absent'|'noshow' */
   playerAttendance?: Record<string, string>
+  /** Coach name for display in day view / admin popup */
+  coachName?: string
+  /** Session status for admin display */
+  sessionStatus?: string
+  /** Number of booked players */
+  bookedCount?: number
+  /** Capacity label e.g. "8/12" */
+  capacityLabel?: string
+  /** Capacity color: 'green' | 'amber' | 'red' | 'blue' */
+  capacityColor?: 'green' | 'amber' | 'red' | 'blue'
+  /** Assistant coach names */
+  assistantCoaches?: string[]
 }
 
 function parseTime(time: string): number {
@@ -456,6 +468,9 @@ export function WeeklyCalendar({
   nextJumpDate,
   nextJumpLabel,
   headerLeft,
+  renderPopup,
+  renderDayEvent,
+  defaultView,
 }: {
   events: CalendarEvent[]
   onEventClick?: (event: CalendarEvent) => void
@@ -479,7 +494,20 @@ export function WeeklyCalendar({
   nextJumpLabel?: string
   /** Content to render at the left of the week navigation header */
   headerLeft?: React.ReactNode
+  /** Custom popup renderer — replaces default popup content when provided */
+  renderPopup?: (event: CalendarEvent, onClose: () => void) => React.ReactNode
+  /** Custom day view event renderer — replaces default event block in day view */
+  renderDayEvent?: (event: CalendarEvent) => React.ReactNode
+  /** Default view mode */
+  defaultView?: 'week' | 'day'
 }) {
+  const [viewMode, setViewMode] = useState<'week' | 'day'>(defaultView ?? 'week')
+  const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
+    // Default to today's index (0=Mon...6=Sun)
+    const day = new Date().getDay()
+    return day === 0 ? 6 : day - 1
+  })
+
   // Default to term start week if we're before the next term, otherwise today
   const [weekOffset, setWeekOffset] = useState(() => {
     const today = new Date()
@@ -610,8 +638,34 @@ export function WeeklyCalendar({
       <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-dawn-cream to-peach-mist/40 px-4 py-2.5">
         <div className="flex items-center gap-2">
           {headerLeft}
+          {/* View mode toggle */}
+          <div className="flex rounded-lg border border-border bg-white/60 p-0.5">
+            <button
+              onClick={() => setViewMode('week')}
+              className={cn(
+                'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors',
+                viewMode === 'week' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <CalendarDays className="size-3" />
+              Week
+            </button>
+            <button
+              onClick={() => setViewMode('day')}
+              className={cn(
+                'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors',
+                viewMode === 'day' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <List className="size-3" />
+              Day
+            </button>
+          </div>
           <button
-            onClick={() => setWeekOffset(o => o - 1)}
+            onClick={() => viewMode === 'day'
+              ? setSelectedDayIndex(i => { if (i === 0) { setWeekOffset(o => o - 1); return 6 } return i - 1 })
+              : setWeekOffset(o => o - 1)
+            }
             className="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/60 hover:text-foreground"
           >
             <ChevronLeft className="size-4" />
@@ -619,7 +673,12 @@ export function WeeklyCalendar({
         </div>
         <div className="flex flex-col items-center gap-0.5">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">{formatWeekRange(monday)}</span>
+            <span className="text-sm font-semibold text-foreground">
+              {viewMode === 'day'
+                ? formatDayDate(addDays(monday, selectedDayIndex).toISOString().split('T')[0])
+                : formatWeekRange(monday)
+              }
+            </span>
             {weekOffset !== 0 && (
               <button
                 onClick={() => setWeekOffset(0)}
@@ -668,7 +727,10 @@ export function WeeklyCalendar({
           })()}
         </div>
         <button
-          onClick={() => setWeekOffset(o => o + 1)}
+          onClick={() => viewMode === 'day'
+            ? setSelectedDayIndex(i => { if (i === 6) { setWeekOffset(o => o + 1); return 0 } return i + 1 })
+            : setWeekOffset(o => o + 1)
+          }
           className="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/60 hover:text-foreground"
         >
           <ChevronRight className="size-4" />
@@ -677,9 +739,127 @@ export function WeeklyCalendar({
 
       {weekEvents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-center">
-          <p className="text-sm text-muted-foreground">No sessions this week</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">Use the arrows to navigate to another week</p>
+          <p className="text-sm text-muted-foreground">No sessions this {viewMode === 'day' ? 'day' : 'week'}</p>
+          <p className="mt-1 text-xs text-muted-foreground/70">Use the arrows to navigate to another {viewMode === 'day' ? 'day' : 'week'}</p>
         </div>
+      ) : viewMode === 'day' ? (
+        /* ── Day View ── */
+        (() => {
+          const dayDate = weekDates[selectedDayIndex]
+          const dayEvents = getEventsForDay(selectedDayIndex)
+            .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime))
+
+          if (dayEvents.length === 0) {
+            return (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <p className="text-sm text-muted-foreground">No sessions on {DAYS[selectedDayIndex]}</p>
+                <p className="mt-1 text-xs text-muted-foreground/70">Use the arrows to navigate to another day</p>
+              </div>
+            )
+          }
+
+          return (
+            <div className="divide-y divide-border">
+              {/* Day selector pills */}
+              <div className="flex items-center justify-center gap-1 bg-muted/30 px-4 py-2">
+                {DAYS.map((day, i) => {
+                  const date = weekDates[i]
+                  const hasEvents = getEventsForDay(i).length > 0
+                  const today = isToday(date)
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDayIndex(i)}
+                      className={cn(
+                        'flex flex-col items-center rounded-lg px-2 py-1.5 text-[10px] transition-colors',
+                        i === selectedDayIndex
+                          ? 'bg-primary text-white'
+                          : today
+                            ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                            : hasEvents
+                              ? 'text-foreground hover:bg-muted'
+                              : 'text-muted-foreground/50 hover:bg-muted'
+                      )}
+                    >
+                      <span className="font-medium uppercase">{day.slice(0, 3)}</span>
+                      <span className="font-bold text-xs">{date.getDate()}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Event cards */}
+              <div className="space-y-2 p-4">
+                {dayEvents.map((event) => {
+                  if (renderDayEvent) {
+                    return <div key={event.id}>{renderDayEvent(event)}</div>
+                  }
+
+                  const CAPACITY_COLORS = {
+                    green: 'bg-success/10 text-success',
+                    amber: 'bg-amber-100 text-amber-700',
+                    red: 'bg-danger/10 text-danger',
+                    blue: 'bg-primary/10 text-primary',
+                  }
+
+                  return (
+                    <button
+                      key={event.id}
+                      onClick={(e) => handleEventClick(event, e.currentTarget)}
+                      className={cn(
+                        'w-full rounded-lg border text-left transition-all hover:shadow-md',
+                        event.color ?? 'border-primary/30 bg-primary/5',
+                        popupEvent?.id === event.id && 'ring-2 ring-primary'
+                      )}
+                    >
+                      <div className="flex items-start justify-between p-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-foreground truncate">{event.title}</p>
+                            {event.sessionStatus && (
+                              <span className={cn(
+                                'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium capitalize',
+                                event.sessionStatus === 'completed' ? 'bg-success/10 text-success' :
+                                event.sessionStatus === 'cancelled' ? 'bg-danger/10 text-danger' :
+                                event.sessionStatus === 'rained_out' ? 'bg-blue-100 text-blue-700' :
+                                'bg-muted text-muted-foreground'
+                              )}>
+                                {event.sessionStatus.replace('_', ' ')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="size-3.5" />
+                              {formatTimeShort(event.startTime)} – {formatTimeShort(event.endTime)}
+                            </span>
+                            {event.coachName && (
+                              <span className="flex items-center gap-1">
+                                <Users className="size-3.5" />
+                                {event.coachName}
+                              </span>
+                            )}
+                            {event.subtitle && (
+                              <span>{event.subtitle}</span>
+                            )}
+                          </div>
+                        </div>
+                        {event.capacityLabel && (
+                          <span className={cn(
+                            'shrink-0 ml-2 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums',
+                            CAPACITY_COLORS[event.capacityColor ?? 'green']
+                          )}>
+                            {event.capacityLabel}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()
       ) : (
       <div className="overflow-x-auto">
         <div className="min-w-[700px]">
@@ -796,6 +976,11 @@ export function WeeklyCalendar({
                               {event.subtitle}
                             </p>
                           )}
+                          {event.capacityLabel && height >= 36 && (
+                            <span className="absolute bottom-0.5 right-0.5 rounded px-1 text-[9px] font-bold opacity-90 bg-white/20">
+                              {event.capacityLabel}
+                            </span>
+                          )}
                         </button>
                       )
                     })
@@ -816,6 +1001,9 @@ export function WeeklyCalendar({
           calendarRef={calendarRef}
           popupPos={popupPos}
         >
+          {renderPopup ? (
+            renderPopup(popupEvent, () => { setPopupEvent(null); setPopupPos(null) })
+          ) : (
           <div className="p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -959,6 +1147,7 @@ export function WeeklyCalendar({
               } : undefined}
             />
           </div>
+          )}
         </PopupContainer>
       )}
     </div>

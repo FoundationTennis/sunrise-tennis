@@ -10,7 +10,7 @@ import { formatDate, formatTime } from '@/lib/utils/dates'
 interface LessonNote {
   id: string
   session_id: string
-  player_id: string
+  player_id: string | null
   focus: string | null
   progress: string | null
   notes: string | null

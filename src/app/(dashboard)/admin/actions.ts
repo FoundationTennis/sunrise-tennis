@@ -341,7 +341,7 @@ export async function createSession(formData: FormData) {
 
   const parsed = validateFormData(formData, createSessionFormSchema)
   if (!parsed.success) {
-    redirect(`/admin/sessions?error=${encodeURIComponent(parsed.error)}`)
+    redirect(`/admin/programs?error=${encodeURIComponent(parsed.error)}`)
   }
 
   const { program_id: programId, date, start_time: startTime, end_time: endTime, session_type: sessionType, coach_id: coachId, venue_id: venueId } = parsed.data
@@ -360,11 +360,11 @@ export async function createSession(formData: FormData) {
     })
 
   if (error) {
-    redirect(`/admin/sessions?error=${encodeURIComponent(error.message)}`)
+    redirect(`/admin/programs?error=${encodeURIComponent(error.message)}`)
   }
 
-  revalidatePath('/admin/sessions')
-  redirect('/admin/sessions')
+  revalidatePath('/admin/programs')
+  redirect('/admin/programs')
 }
 
 export async function generateTermSessions(formData: FormData) {
@@ -373,7 +373,7 @@ export async function generateTermSessions(formData: FormData) {
 
   const parsed = validateFormData(formData, generateTermSessionsFormSchema)
   if (!parsed.success) {
-    redirect(`/admin/sessions?error=${encodeURIComponent(parsed.error)}`)
+    redirect(`/admin/programs?error=${encodeURIComponent(parsed.error)}`)
   }
 
   const { term, year } = parsed.data
@@ -382,7 +382,7 @@ export async function generateTermSessions(formData: FormData) {
   const { getTerm, isPublicHoliday } = await import('@/lib/utils/school-terms')
   const termInfo = getTerm(term, year)
   if (!termInfo) {
-    redirect(`/admin/sessions?error=${encodeURIComponent(`Term ${term} ${year} not found in school-terms config`)}`)
+    redirect(`/admin/programs?error=${encodeURIComponent(`Term ${term} ${year} not found in school-terms config`)}`)
   }
 
   // Get all active programs with scheduling info
@@ -394,7 +394,7 @@ export async function generateTermSessions(formData: FormData) {
     .not('start_time', 'is', null)
 
   if (!programs || programs.length === 0) {
-    redirect(`/admin/sessions?error=${encodeURIComponent('No active programs with scheduling info found')}`)
+    redirect(`/admin/programs?error=${encodeURIComponent('No active programs with scheduling info found')}`)
   }
 
   // Get primary coaches for each program
@@ -472,7 +472,7 @@ export async function generateTermSessions(formData: FormData) {
   }
 
   if (sessionsToInsert.length === 0) {
-    redirect(`/admin/sessions?success=${encodeURIComponent(`No new sessions needed for T${term} ${year} - all sessions already exist`)}`)
+    redirect(`/admin/programs?success=${encodeURIComponent(`No new sessions needed for T${term} ${year} - all sessions already exist`)}`)
   }
 
   // Insert in batches of 100
@@ -482,13 +482,13 @@ export async function generateTermSessions(formData: FormData) {
     const { error } = await supabase.from('sessions').insert(batch)
     if (error) {
       console.error('Session generation batch error:', error.message)
-      redirect(`/admin/sessions?error=${encodeURIComponent(`Created ${created} sessions, then failed: ${error.message}`)}`)
+      redirect(`/admin/programs?error=${encodeURIComponent(`Created ${created} sessions, then failed: ${error.message}`)}`)
     }
     created += batch.length
   }
 
   revalidatePath('/admin/sessions')
-  redirect(`/admin/sessions?success=${encodeURIComponent(`Generated ${created} sessions for T${term} ${year}`)}`)
+  redirect(`/admin/programs?success=${encodeURIComponent(`Generated ${created} sessions for T${term} ${year}`)}`)
 }
 
 export async function updateAttendance(sessionId: string, formData: FormData) {
@@ -713,8 +713,13 @@ export async function updateAttendance(sessionId: string, formData: FormData) {
     }
   }
 
-  revalidatePath(`/admin/sessions/${sessionId}`)
-  redirect(`/admin/sessions/${sessionId}`)
+  const programIdForRedirect = session?.program_id
+  if (programIdForRedirect) {
+    revalidatePath(`/admin/programs/${programIdForRedirect}/sessions/${sessionId}`)
+    redirect(`/admin/programs/${programIdForRedirect}/sessions/${sessionId}`)
+  }
+  revalidatePath('/admin/programs')
+  redirect('/admin/programs')
 }
 
 export async function cancelSession(sessionId: string, formData: FormData) {
@@ -738,7 +743,11 @@ export async function cancelSession(sessionId: string, formData: FormData) {
     .eq('id', sessionId)
 
   if (error) {
-    redirect(`/admin/sessions/${sessionId}?error=${encodeURIComponent(error.message)}`)
+    const pid = session?.program_id
+    if (pid) {
+      redirect(`/admin/programs/${pid}/sessions/${sessionId}?error=${encodeURIComponent(error.message)}`)
+    }
+    redirect(`/admin/programs?error=${encodeURIComponent(error.message)}`)
   }
 
   // ── Create credits for all enrolled families ─────────────────────────
@@ -844,8 +853,8 @@ export async function cancelSession(sessionId: string, formData: FormData) {
   }
 
   revalidatePath(`/admin/sessions/${sessionId}`)
-  revalidatePath('/admin/sessions')
-  redirect('/admin/sessions')
+  revalidatePath('/admin/programs')
+  redirect('/admin/programs')
 }
 
 // ── Admin Booking on Behalf ────────────────────────────────────────────

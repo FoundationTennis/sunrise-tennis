@@ -1,27 +1,10 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
-import { formatDate, formatTime } from '@/lib/utils/dates'
 import { PageHeader } from '@/components/page-header'
-import { StatusBadge } from '@/components/status-badge'
-import { EmptyState } from '@/components/empty-state'
-import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Calendar } from 'lucide-react'
+import { getCurrentTermRange } from '@/lib/utils/school-terms'
+import { CoachCalendar } from './coach-calendar'
 
-export default async function CoachSchedulePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ filter?: string }>
-}) {
-  const { filter } = await searchParams
+export default async function CoachSchedulePage() {
   const supabase = await createClient()
 
   const user = await getSessionUser()
@@ -43,93 +26,126 @@ export default async function CoachSchedulePage({
     )
   }
 
-  const today = new Date().toISOString().split('T')[0]
-  const showPast = filter === 'past'
+  // Get date range — current term or next term
+  const { start: termStart, end: termEnd } = getCurrentTermRange(new Date())
 
-  let query = supabase
+  // Fetch sessions where coach is primary (direct assignment)
+  const { data: primarySessions } = await supabase
     .from('sessions')
-    .select('*, programs:program_id(name, level, type), venues:venue_id(name)')
+    .select('id, program_id, coach_id, date, start_time, end_time, status, session_type, coaches:coach_id(name), programs:program_id(name, level, type), venues:venue_id(name)')
     .eq('coach_id', coachId)
-    .order('date', { ascending: !showPast })
+    .gte('date', termStart)
+    .lte('date', termEnd)
+    .order('date')
     .order('start_time')
-    .limit(50)
 
-  if (showPast) {
-    query = query.lt('date', today)
-  } else {
-    query = query.gte('date', today)
+  // Fetch programs where coach is assigned (primary or assistant)
+  const { data: coachPrograms } = await supabase
+    .from('program_coaches')
+    .select('program_id, role')
+    .eq('coach_id', coachId)
+
+  const assistantProgramIds = (coachPrograms ?? [])
+    .filter(cp => cp.role === 'assistant')
+    .map(cp => cp.program_id)
+
+  const primaryProgramIds = new Set((coachPrograms ?? [])
+    .filter(cp => cp.role === 'primary')
+    .map(cp => cp.program_id))
+
+  // Fetch sessions for assistant programs (that aren't already in primary sessions)
+  let assistantSessions: typeof primarySessions = []
+  if (assistantProgramIds.length > 0) {
+    const { data } = await supabase
+      .from('sessions')
+      .select('id, program_id, coach_id, date, start_time, end_time, status, session_type, coaches:coach_id(name), programs:program_id(name, level, type), venues:venue_id(name)')
+      .in('program_id', assistantProgramIds)
+      .gte('date', termStart)
+      .lte('date', termEnd)
+      .order('date')
+      .order('start_time')
+    assistantSessions = data ?? []
   }
 
-  const { data: sessions } = await query
+  // Merge and deduplicate sessions
+  const primaryIds = new Set((primarySessions ?? []).map(s => s.id))
+  const allSessions = [
+    ...(primarySessions ?? []),
+    ...(assistantSessions ?? []).filter(s => !primaryIds.has(s.id)),
+  ]
+
+  // Get attendance counts per session
+  const sessionIds = allSessions.map(s => s.id)
+  let attendanceCounts: Record<string, number> = {}
+  if (sessionIds.length > 0) {
+    const { data: counts } = await supabase
+      .from('attendances')
+      .select('session_id')
+      .in('session_id', sessionIds)
+    if (counts) {
+      for (const row of counts) {
+        attendanceCounts[row.session_id] = (attendanceCounts[row.session_id] ?? 0) + 1
+      }
+    }
+  }
+
+  // Get program roster counts
+  const programIds = [...new Set(allSessions.map(s => s.program_id).filter((id): id is string => id != null))]
+  let rosterCounts: Record<string, number> = {}
+  if (programIds.length > 0) {
+    const { data: roster } = await supabase
+      .from('program_roster')
+      .select('program_id')
+      .in('program_id', programIds)
+      .eq('status', 'enrolled')
+    if (roster) {
+      for (const row of roster) {
+        rosterCounts[row.program_id] = (rosterCounts[row.program_id] ?? 0) + 1
+      }
+    }
+  }
+
+  const LEVEL_COLORS: Record<string, string> = {
+    red: 'bg-ball-red/20 border-ball-red/30',
+    orange: 'bg-ball-orange/20 border-ball-orange/30',
+    green: 'bg-ball-green/20 border-ball-green/30',
+    yellow: 'bg-ball-yellow/20 border-ball-yellow/30',
+    competitive: 'bg-primary/15 border-primary/30',
+  }
+
+  // Serialize sessions for client component
+  const calendarSessions = allSessions.map(s => {
+    const program = s.programs as unknown as { name: string; level: string; type: string } | null
+    const venue = s.venues as unknown as { name: string } | null
+    const isLead = s.coach_id === coachId || (s.program_id ? primaryProgramIds.has(s.program_id) : false)
+    const eventDate = new Date(s.date + 'T12:00:00')
+
+    return {
+      id: s.id,
+      title: program?.name ?? s.session_type,
+      subtitle: venue?.name ?? '',
+      dayOfWeek: eventDate.getDay(),
+      startTime: s.start_time ?? '09:00',
+      endTime: s.end_time ?? '10:00',
+      color: LEVEL_COLORS[program?.level ?? ''] ?? (s.session_type === 'private' ? 'bg-purple-100 border-purple-300' : 'bg-primary/15 border-primary/30'),
+      date: s.date,
+      sessionId: s.id,
+      programId: s.program_id ?? undefined,
+      sessionStatus: s.status,
+      coachName: isLead ? 'Lead' : 'Assistant',
+      bookedCount: attendanceCounts[s.id] ?? rosterCounts[s.program_id ?? ''] ?? 0,
+    }
+  })
 
   return (
     <div>
       <PageHeader
         title="Schedule"
-        description="Your assigned sessions."
-        action={
-          <Button asChild variant="outline">
-            <Link href={showPast ? '/coach/schedule' : '/coach/schedule?filter=past'}>
-              {showPast ? 'Upcoming' : 'Past sessions'}
-            </Link>
-          </Button>
-        }
+        description="Your sessions this term."
       />
-
-      {sessions && sessions.length > 0 ? (
-        <div className="mt-6 overflow-hidden rounded-lg border border-border bg-card shadow-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>Date</TableHead>
-                <TableHead>Program</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Venue</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sessions.map((session) => {
-                const program = session.programs as unknown as { name: string; level: string; type: string } | null
-                const venue = session.venues as unknown as { name: string } | null
-                return (
-                  <TableRow key={session.id}>
-                    <TableCell>
-                      <Link href={`/coach/schedule/${session.id}`} className="font-medium hover:text-primary transition-colors">
-                        {formatDate(session.date)}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {program?.name ?? session.session_type}
-                      {session.session_type === 'private' && (
-                        <span className="ml-1.5 inline-flex items-center rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
-                          Private
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {session.start_time ? formatTime(session.start_time) : '-'}
-                      {session.end_time ? ` - ${formatTime(session.end_time)}` : ''}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{venue?.name ?? '-'}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={session.status ?? 'scheduled'} />
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <div className="mt-6">
-          <EmptyState
-            icon={Calendar}
-            title={showPast ? 'No past sessions found' : 'No upcoming sessions'}
-            description={showPast ? 'Past sessions will appear here.' : 'Sessions assigned to you will appear here.'}
-          />
-        </div>
-      )}
+      <div className="mt-6">
+        <CoachCalendar sessions={calendarSessions} />
+      </div>
     </div>
   )
 }

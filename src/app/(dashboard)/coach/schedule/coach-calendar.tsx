@@ -1,0 +1,74 @@
+'use client'
+
+import Link from 'next/link'
+import { WeeklyCalendar, type CalendarEvent } from '@/components/weekly-calendar'
+import { StatusBadge } from '@/components/status-badge'
+import { Users, MapPin, X, Eye } from 'lucide-react'
+
+function CoachSessionPopup({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
+  return (
+    <div className="p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-foreground leading-tight">{event.title}</h3>
+          {event.sessionStatus && (
+            <StatusBadge status={event.sessionStatus} />
+          )}
+        </div>
+        <button
+          onClick={onClose}
+          className="flex size-6 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+
+      <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            event.coachName === 'Lead'
+              ? 'bg-primary/10 text-primary'
+              : 'bg-muted text-muted-foreground'
+          }`}>
+            {event.coachName}
+          </span>
+        </div>
+        {event.bookedCount !== undefined && (
+          <div className="flex items-center gap-2">
+            <Users className="size-3.5 shrink-0" />
+            <span>{event.bookedCount} player{event.bookedCount !== 1 ? 's' : ''}</span>
+          </div>
+        )}
+        {event.subtitle && (
+          <div className="flex items-center gap-2">
+            <MapPin className="size-3.5 shrink-0" />
+            <span>{event.subtitle}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        {event.sessionId && (
+          <Link
+            href={`/coach/schedule/${event.sessionId}`}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#2B5EA7] px-3 py-2 text-sm font-medium text-white shadow-sm transition-all hover:brightness-110"
+          >
+            <Eye className="size-3.5" />
+            View session
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function CoachCalendar({ sessions }: { sessions: CalendarEvent[] }) {
+  return (
+    <WeeklyCalendar
+      events={sessions}
+      renderPopup={(event, onClose) => (
+        <CoachSessionPopup event={event} onClose={onClose} />
+      )}
+    />
+  )
+}

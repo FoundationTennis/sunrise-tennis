@@ -133,6 +133,42 @@ export function getNextTermStart(from: Date): Date | null {
 }
 
 /**
+ * Returns the start and end date strings (YYYY-MM-DD) of the current or next term.
+ * If between terms, returns the next upcoming term range.
+ * Falls back to current year bounds if no term matches.
+ */
+export function getCurrentTermRange(from: Date): { start: string; end: string } {
+  const day = startOfDay(from)
+
+  // Check if we're inside a term
+  for (const t of SA_TERMS) {
+    if (day >= startOfDay(t.start) && day <= startOfDay(t.end)) {
+      return {
+        start: t.start.toISOString().split('T')[0],
+        end: t.end.toISOString().split('T')[0],
+      }
+    }
+  }
+
+  // Between terms — use next upcoming term
+  for (const t of SA_TERMS) {
+    if (startOfDay(t.start) > day) {
+      return {
+        start: t.start.toISOString().split('T')[0],
+        end: t.end.toISOString().split('T')[0],
+      }
+    }
+  }
+
+  // Fallback to current year
+  const year = from.getFullYear()
+  return {
+    start: `${year}-01-01`,
+    end: `${year}-12-31`,
+  }
+}
+
+/**
  * Returns the end date of the next upcoming term (includes current if inside one).
  * Always shows through the next full term so parents can book ahead.
  */

@@ -6,7 +6,7 @@ import {
   Users,
   UserCheck,
   GraduationCap,
-  Calendar,
+
   CreditCard,
   Bell,
   Trophy,
@@ -19,7 +19,7 @@ const navItems = [
   { href: '/admin/families', label: 'Families', icon: Users },
   { href: '/admin/players', label: 'Players', icon: UserCheck },
   { href: '/admin/programs', label: 'Programs', icon: GraduationCap },
-  { href: '/admin/sessions', label: 'Sessions', icon: Calendar },
+
   { href: '/admin/payments', label: 'Payments', icon: CreditCard },
   { href: '/admin/privates', label: 'Privates', icon: UserPlus },
   { href: '/admin/notifications', label: 'Notifications', icon: Bell },
