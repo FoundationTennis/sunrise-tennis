@@ -1,13 +1,14 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatTime } from '@/lib/utils/dates'
 import { Badge } from '@/components/ui/badge'
 import { WeeklyCalendar, type CalendarEvent, type EnrolledPlayersMap } from '@/components/weekly-calendar'
 import { Calendar, Layers, Tag, ChevronRight, Users, Filter } from 'lucide-react'
-import { bookSession, markSessionAway } from './actions'
+import { bookSession, markSessionAway, cancelSessionBooking } from './actions'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -214,6 +215,7 @@ export function ParentProgramFilters({
   familyPlayers: { id: string; name: string }[]
   attendances: Attendance[]
 }) {
+  const router = useRouter()
   const [tab, setTab] = useState<Tab>('calendar')
   // Default level to the strongest player's level (blue = highest)
   const strongestLevel = useMemo(() => {
@@ -400,11 +402,11 @@ export function ParentProgramFilters({
     return programs.filter(p => enrolledProgramIds.has(p.id) || recommendedProgramIds.has(p.id))
   }, [programs, calendarFilter, enrolledProgramIds, recommendedProgramIds])
 
-  // Visible levels/types — in "For you" mode, hide empty ones
+  // Visible levels — in "For you" mode, only show levels players actually have
   const visibleLevels = useMemo(() => {
     if (calendarFilter === 'all') return levels
-    return levels.filter(l => filterByLevel(relevantPrograms, l).length > 0)
-  }, [levels, calendarFilter, relevantPrograms])
+    return levels.filter(l => playerLevelSet.has(l))
+  }, [levels, calendarFilter, playerLevelSet])
 
   const visibleTypes = useMemo(() => {
     if (calendarFilter === 'all') return types
@@ -501,8 +503,21 @@ export function ParentProgramFilters({
               players={familyPlayers}
               enrolledPlayersMap={enrolledPlayersMap}
               sessionEnrolledMap={sessionEnrolledMap}
-              onBookSession={bookSession}
-              onMarkAway={markSessionAway}
+              onBookSession={async (sid, pid, pids) => {
+                const r = await bookSession(sid, pid, pids)
+                router.refresh()
+                return r
+              }}
+              onMarkAway={async (sid, pid) => {
+                const r = await markSessionAway(sid, pid)
+                router.refresh()
+                return r
+              }}
+              onCancelSession={async (sid, pid) => {
+                const r = await cancelSessionBooking(sid, pid)
+                router.refresh()
+                return r
+              }}
             />
           ) : (
             <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No scheduled sessions.</p>

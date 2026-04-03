@@ -263,6 +263,7 @@ function PopupActions({
   actionLoading,
   onBookSession,
   onMarkAway,
+  onCancelSession,
 }: {
   event: CalendarEvent
   players?: CalendarPlayer[]
@@ -273,6 +274,7 @@ function PopupActions({
   actionLoading: boolean
   onBookSession?: (sessionId: string, programId: string, playerIds: string[]) => void
   onMarkAway?: (sessionId: string, playerId: string) => void
+  onCancelSession?: (sessionId: string, playerId: string) => void
 }) {
   if (!event.sessionId || !event.programId || !players || players.length === 0) {
     return (
@@ -293,6 +295,8 @@ function PopupActions({
   const enrolledPlayerIds = new Set(
     sessionEnrolledMap?.[event.sessionId!] ?? enrolledPlayersMap?.[event.programId] ?? []
   )
+  // Term-enrolled players (in program_roster)
+  const termEnrolledIds = new Set(enrolledPlayersMap?.[event.programId] ?? [])
   const enrolledPlayers = players.filter(p => enrolledPlayerIds.has(p.id))
   const availablePlayers = players.filter(p => !enrolledPlayerIds.has(p.id))
   const att = event.playerAttendance ?? {}
@@ -302,7 +306,7 @@ function PopupActions({
 
   return (
     <div className="mt-3 space-y-3">
-      {/* Enrolled/booked players — attendance checklist */}
+      {/* Enrolled/booked players */}
       {enrolledPlayers.length > 0 && (
         <div>
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
@@ -311,6 +315,7 @@ function PopupActions({
           <div className="space-y-1">
             {enrolledPlayers.map(p => {
               const status = att[p.id]
+              const isTermEnrolled = termEnrolledIds.has(p.id)
               const style = ATTENDANCE_STYLES[status ?? 'present'] ?? ATTENDANCE_STYLES.present
 
               // Coach has marked attendance — read-only display
@@ -323,31 +328,49 @@ function PopupActions({
                 )
               }
 
-              // Parent can toggle between attending/away
-              const isAway = status === 'excused'
-              return (
-                <div key={p.id} className={`flex items-center justify-between rounded-lg border px-3 py-1.5 ${isAway ? 'bg-muted/50 border-border' : 'bg-success/5 border-success/20'}`}>
-                  <span className={`text-sm font-medium ${isAway ? 'text-muted-foreground' : 'text-success'}`}>{p.name}</span>
-                  <div className="flex gap-1">
-                    {onBookSession && isAway && (
-                      <button
-                        disabled={actionLoading}
-                        onClick={() => onBookSession(event.sessionId!, event.programId!, [p.id])}
-                        className="rounded-md bg-success/10 px-2 py-0.5 text-xs font-medium text-success hover:bg-success/20 transition-colors disabled:opacity-50"
-                      >
-                        {actionLoading ? <Loader2 className="size-3 animate-spin" /> : 'Attending'}
-                      </button>
-                    )}
-                    {onMarkAway && !isAway && (
-                      <button
-                        disabled={actionLoading}
-                        onClick={() => onMarkAway(event.sessionId!, p.id)}
-                        className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-50"
-                      >
-                        {actionLoading ? <Loader2 className="size-3 animate-spin" /> : 'Away'}
-                      </button>
-                    )}
+              // Term enrolled: attending/away toggle
+              if (isTermEnrolled) {
+                const isAway = status === 'excused'
+                return (
+                  <div key={p.id} className={`flex items-center justify-between rounded-lg border px-3 py-1.5 ${isAway ? 'bg-muted/50 border-border' : 'bg-success/5 border-success/20'}`}>
+                    <span className={`text-sm font-medium ${isAway ? 'text-muted-foreground' : 'text-success'}`}>{p.name}</span>
+                    <div className="flex gap-1">
+                      {onBookSession && isAway && (
+                        <button
+                          disabled={actionLoading}
+                          onClick={() => onBookSession(event.sessionId!, event.programId!, [p.id])}
+                          className="rounded-md bg-success/10 px-2 py-0.5 text-xs font-medium text-success hover:bg-success/20 transition-colors disabled:opacity-50"
+                        >
+                          {actionLoading ? <Loader2 className="size-3 animate-spin" /> : 'Attending'}
+                        </button>
+                      )}
+                      {onMarkAway && !isAway && (
+                        <button
+                          disabled={actionLoading}
+                          onClick={() => onMarkAway(event.sessionId!, p.id)}
+                          className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-50"
+                        >
+                          {actionLoading ? <Loader2 className="size-3 animate-spin" /> : 'Away'}
+                        </button>
+                      )}
+                    </div>
                   </div>
+                )
+              }
+
+              // Single session booked (not term enrolled): cancel option
+              return (
+                <div key={p.id} className="flex items-center justify-between rounded-lg border border-success/20 bg-success/5 px-3 py-1.5">
+                  <span className="text-sm font-medium text-success">{p.name}</span>
+                  {onCancelSession && (
+                    <button
+                      disabled={actionLoading}
+                      onClick={() => onCancelSession(event.sessionId!, p.id)}
+                      className="rounded-md bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger hover:bg-danger/20 transition-colors disabled:opacity-50"
+                    >
+                      {actionLoading ? <Loader2 className="size-3 animate-spin" /> : 'Cancel'}
+                    </button>
+                  )}
                 </div>
               )
             })}
@@ -429,6 +452,7 @@ export function WeeklyCalendar({
   onBookSession,
   onMarkAway,
   onCancelPrivate,
+  onCancelSession,
   nextJumpDate,
   nextJumpLabel,
   headerLeft,
@@ -447,6 +471,8 @@ export function WeeklyCalendar({
   onMarkAway?: (sessionId: string, playerId: string) => Promise<{ error?: string }>
   /** Called when user cancels a private booking */
   onCancelPrivate?: (bookingId: string) => Promise<{ error?: string }>
+  /** Called when user cancels a single session booking (not term enrolled) */
+  onCancelSession?: (sessionId: string, playerId: string) => Promise<{ error?: string }>
   /** Date string (YYYY-MM-DD) to jump to via a custom button */
   nextJumpDate?: string
   /** Label for the jump button (e.g. "Next private") */
@@ -916,6 +942,18 @@ export function WeeklyCalendar({
                   setActionResult({ type: 'error', message: result.error })
                 } else {
                   setActionResult({ type: 'success', message: 'Marked as away' })
+                  setTimeout(() => { setPopupEvent(null); setPopupPos(null); setActionResult(null) }, 1200)
+                }
+              } : undefined}
+              onCancelSession={onCancelSession ? async (sessionId, playerId) => {
+                setActionLoading(true)
+                setActionResult(null)
+                const result = await onCancelSession(sessionId, playerId)
+                setActionLoading(false)
+                if (result.error) {
+                  setActionResult({ type: 'error', message: result.error })
+                } else {
+                  setActionResult({ type: 'success', message: 'Cancelled' })
                   setTimeout(() => { setPopupEvent(null); setPopupPos(null); setActionResult(null) }, 1200)
                 }
               } : undefined}

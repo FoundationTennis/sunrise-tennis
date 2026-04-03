@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { WeeklyCalendar, type CalendarEvent, type CalendarPlayer, type EnrolledPlayersMap } from '@/components/weekly-calendar'
-import { markSessionAway } from './programs/actions'
+import { markSessionAway, cancelSessionBooking } from './programs/actions'
 import { cancelPrivateFromOverview } from './overview-actions'
 import { Users, Layers } from 'lucide-react'
 
@@ -108,6 +109,7 @@ export function EnrolledCalendar({
   onMarkAway?: (sessionId: string, playerId: string) => Promise<{ error?: string }>
   onCancelPrivate?: (bookingId: string) => Promise<{ error?: string }>
 }) {
+  const router = useRouter()
   const [colorMode, setColorMode] = useState<ColorMode>('player')
   const [hiddenPlayers, setHiddenPlayers] = useState<Set<string>>(new Set())
 
@@ -267,8 +269,23 @@ export function EnrolledCalendar({
         events={visibleEvents}
         players={familyPlayers}
         enrolledPlayersMap={enrolledPlayersMapData}
-        onMarkAway={onMarkAway ?? markSessionAway}
-        onCancelPrivate={onCancelPrivate ?? cancelPrivateFromOverview}
+        onMarkAway={async (sid, pid) => {
+          const fn = onMarkAway ?? markSessionAway
+          const r = await fn(sid, pid)
+          router.refresh()
+          return r
+        }}
+        onCancelPrivate={async (bid) => {
+          const fn = onCancelPrivate ?? cancelPrivateFromOverview
+          const r = await fn(bid)
+          router.refresh()
+          return r
+        }}
+        onCancelSession={async (sid, pid) => {
+          const r = await cancelSessionBooking(sid, pid)
+          router.refresh()
+          return r
+        }}
       />
     </div>
   )

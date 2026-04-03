@@ -368,3 +368,46 @@ export async function markSessionAway(
   revalidatePath('/parent/payments')
   return {}
 }
+
+// ── Cancel a single session booking (not term enrolled) ───────────────────
+
+export async function cancelSessionBooking(
+  sessionId: string,
+  playerId: string,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const auth = await getParentFamilyId()
+  if (!auth) return { error: 'Not authenticated' }
+
+  const { checkRateLimitAsync } = await import('@/lib/utils/rate-limit')
+  if (!await checkRateLimitAsync(`cancel-session:${auth.userId}`, 10, 60_000)) {
+    return { error: 'Too many requests. Please wait a moment.' }
+  }
+
+  const { data: player } = await supabase
+    .from('players')
+    .select('id')
+    .eq('id', playerId)
+    .eq('family_id', auth.familyId)
+    .single()
+
+  if (!player) return { error: 'Player not found' }
+
+  // Delete attendance record
+  await supabase
+    .from('attendances')
+    .delete()
+    .eq('session_id', sessionId)
+    .eq('player_id', playerId)
+
+  // Void charge
+  const existingCharge2 = await getExistingSessionCharge(supabase, sessionId, playerId)
+  if (existingCharge2) {
+    await voidCharge(supabase, existingCharge2.id, auth.familyId)
+  }
+
+  revalidatePath('/parent/programs')
+  revalidatePath('/parent')
+  revalidatePath('/parent/payments')
+  return {}
+}
