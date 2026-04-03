@@ -188,6 +188,53 @@ export interface CalendarPlayer {
 /** Map of programId → Set of enrolled playerIds */
 export type EnrolledPlayersMap = Record<string, string[]>
 
+/** Popup container that auto-clamps to stay within calendar bounds */
+function PopupContainer({
+  popupRef,
+  calendarRef,
+  popupPos,
+  children,
+}: {
+  popupRef: React.RefObject<HTMLDivElement | null>
+  calendarRef: React.RefObject<HTMLDivElement | null>
+  popupPos: { top: number; left: number; preferRight: boolean }
+  children: React.ReactNode
+}) {
+  const [adjustedTop, setAdjustedTop] = useState<number>(Math.max(8, popupPos.top - 80))
+
+  useEffect(() => {
+    const popup = popupRef.current
+    const calendar = calendarRef.current
+    if (!popup || !calendar) return
+
+    // Wait for content to render
+    requestAnimationFrame(() => {
+      const popupHeight = popup.offsetHeight
+      const calendarHeight = calendar.offsetHeight
+      const idealTop = Math.max(8, popupPos.top - 80)
+      const maxTop = calendarHeight - popupHeight - 8
+
+      setAdjustedTop(Math.max(8, Math.min(idealTop, maxTop)))
+    })
+  }, [popupRef, calendarRef, popupPos])
+
+  return (
+    <div
+      ref={popupRef}
+      className="absolute z-50 w-72 animate-fade-up rounded-xl border border-border bg-white shadow-elevated"
+      style={{
+        top: adjustedTop,
+        ...(popupPos.preferRight
+          ? { right: 8 }
+          : { left: Math.min(popupPos.left, (calendarRef.current?.offsetWidth ?? 600) - 296) }
+        ),
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 /** Popup actions: book session / mark away */
 function PopupActions({
   event,
@@ -630,16 +677,10 @@ export function WeeklyCalendar({
 
       {/* ── Positioned popup ── */}
       {popupEvent && popupPos && (
-        <div
-          ref={popupRef}
-          className="absolute z-50 w-72 animate-fade-up rounded-xl border border-border bg-white shadow-elevated"
-          style={{
-            top: Math.max(8, popupPos.top - 80),
-            ...(popupPos.preferRight
-              ? { right: 8 }
-              : { left: Math.min(popupPos.left, (calendarRef.current?.offsetWidth ?? 600) - 296) }
-            ),
-          }}
+        <PopupContainer
+          popupRef={popupRef}
+          calendarRef={calendarRef}
+          popupPos={popupPos}
         >
           <div className="p-4">
             <div className="flex items-start justify-between gap-2">
@@ -747,7 +788,7 @@ export function WeeklyCalendar({
               } : undefined}
             />
           </div>
-        </div>
+        </PopupContainer>
       )}
     </div>
   )
