@@ -6,7 +6,7 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { formatTime } from '@/lib/utils/dates'
 import { Badge } from '@/components/ui/badge'
 import { WeeklyCalendar, type CalendarEvent, type EnrolledPlayersMap } from '@/components/weekly-calendar'
-import { Calendar, List, Layers, Tag, ChevronRight, Users, Filter } from 'lucide-react'
+import { Calendar, Layers, Tag, ChevronRight, Users, Filter } from 'lucide-react'
 import { bookSession, markSessionAway } from './actions'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -86,7 +86,7 @@ type Session = {
   status: string
 }
 
-type Tab = 'calendar' | 'list' | 'level' | 'type'
+type Tab = 'calendar' | 'level' | 'type'
 
 /** Strip day prefix from program name for calendar display, clean up "Ball" and avoid double suffix */
 function formatCalendarTitle(name: string, type: string): string {
@@ -187,9 +187,9 @@ function ProgramCard({
  */
 function filterByLevel(programs: Program[], level: string): Program[] {
   return programs.filter(p => {
-    if (p.level === level) return true
-    const nameLower = p.name.toLowerCase()
-    return nameLower.includes(level.toLowerCase())
+    if (!p.level) return false
+    // Exact match or composite level containing this level (e.g. "red-orange" matches "red" and "orange")
+    return p.level === level || p.level.includes(level)
   })
 }
 
@@ -215,10 +215,10 @@ export function ParentProgramFilters({
   attendances: Attendance[]
 }) {
   const [tab, setTab] = useState<Tab>('calendar')
-  // Default level to the strongest player's level (highest in order)
+  // Default level to the strongest player's level (blue = highest)
   const strongestLevel = useMemo(() => {
-    const order = ['blue', 'yellow', 'green', 'orange', 'red']
-    for (const lvl of order) {
+    const strength = ['blue', 'yellow', 'green', 'orange', 'red']
+    for (const lvl of strength) {
       if (playerLevels.includes(lvl)) return lvl
     }
     return playerLevels[0] ?? ''
@@ -229,20 +229,28 @@ export function ParentProgramFilters({
   const playerIds = useMemo(() => new Set(familyPlayerIds), [familyPlayerIds])
   const playerLevelSet = useMemo(() => new Set(playerLevels), [playerLevels])
 
+  // Single-colour levels only (filter out composites like "red-orange"), blue first
+  const LEVEL_ORDER = ['blue', 'yellow', 'green', 'orange', 'red', 'competitive']
+  const SINGLE_LEVELS = new Set(LEVEL_ORDER)
+
   const levels = useMemo(() => {
     const lvls = new Set<string>()
     programs.forEach(p => {
-      if (p.level) lvls.add(p.level)
+      if (p.level && SINGLE_LEVELS.has(p.level)) lvls.add(p.level)
     })
-    const order = ['red', 'orange', 'green', 'yellow', 'blue', 'competitive']
     return [...lvls].sort((a, b) => {
-      const iA = order.indexOf(a)
-      const iB = order.indexOf(b)
+      const iA = LEVEL_ORDER.indexOf(a)
+      const iB = LEVEL_ORDER.indexOf(b)
       return (iA === -1 ? 99 : iA) - (iB === -1 ? 99 : iB)
     })
   }, [programs])
 
-  const types = useMemo(() => [...new Set(programs.map(p => p.type).filter(Boolean))].sort(), [programs])
+  // Fixed type order: group, squad, competition, school
+  const TYPE_ORDER = ['group', 'squad', 'competition', 'school']
+  const types = useMemo(() => {
+    const typeSet = new Set(programs.map(p => p.type).filter(Boolean))
+    return TYPE_ORDER.filter(t => typeSet.has(t))
+  }, [programs])
 
   // Build a map of program ID → program for quick lookup
   const programMap = useMemo(() => {
@@ -263,7 +271,7 @@ export function ParentProgramFilters({
     return ids
   }, [programs, playerIds])
 
-  // Map of programId → enrolled family playerIds (for calendar booking UI)
+  // Map of programId → enrolled family playerIds (from program_roster, for term enrollment)
   const enrolledPlayersMap: EnrolledPlayersMap = useMemo(() => {
     const map: Record<string, string[]> = {}
     programs.forEach(p => {
@@ -284,23 +292,42 @@ export function ParentProgramFilters({
     return ids
   }, [programs, playerLevelSet])
 
-  // Attendance lookup: sessionId → Set of statuses for family players
+  // Attendance lookup: sessionId → booking status + per-player details
   const sessionAttendanceMap = useMemo(() => {
-    const map = new Map<string, { booked: boolean; allAway: boolean }>()
-    // Group attendances by session
+    const map = new Map<string, { booked: boolean; allAway: boolean; bookedPlayerIds: Set<string>; awayPlayerIds: Set<string> }>()
     const bySession = new Map<string, Attendance[]>()
     for (const a of attendances) {
+      if (!playerIds.has(a.player_id)) continue // Only family players
       const list = bySession.get(a.session_id)
       if (list) list.push(a)
       else bySession.set(a.session_id, [a])
     }
     for (const [sessionId, records] of bySession) {
-      const hasPresent = records.some(r => r.status === 'present')
+      const bookedPlayerIds = new Set(records.filter(r => r.status === 'present').map(r => r.player_id))
+      const awayPlayerIds = new Set(records.filter(r => r.status === 'excused').map(r => r.player_id))
+      const hasPresent = bookedPlayerIds.size > 0
       const allExcused = records.length > 0 && records.every(r => r.status === 'excused')
-      map.set(sessionId, { booked: hasPresent, allAway: allExcused })
+      map.set(sessionId, { booked: hasPresent, allAway: allExcused, bookedPlayerIds, awayPlayerIds })
     }
     return map
-  }, [attendances])
+  }, [attendances, playerIds])
+
+  // Enhanced per-session map: includes both enrolled AND session-booked players
+  const sessionEnrolledMap: Record<string, string[]> = useMemo(() => {
+    const map: Record<string, string[]> = {}
+    for (const s of sessions) {
+      const prog = programMap.get(s.program_id)
+      if (!prog) continue
+      const enrolled = new Set(enrolledPlayersMap[prog.id] ?? [])
+      // Add players who have booked this specific session
+      const att = sessionAttendanceMap.get(s.id)
+      if (att) {
+        for (const pid of att.bookedPlayerIds) enrolled.add(pid)
+      }
+      if (enrolled.size > 0) map[s.id] = [...enrolled]
+    }
+    return map
+  }, [sessions, programMap, enrolledPlayersMap, sessionAttendanceMap])
 
   // Build calendar events from sessions
   const calendarEvents: CalendarEvent[] = useMemo(() => {
@@ -323,12 +350,13 @@ export function ParentProgramFilters({
         const spotsLeft = prog.max_capacity ? prog.max_capacity - enrolledCount : null
         const isEnrolled = enrolledProgramIds.has(prog.id)
 
-        // Color logic: enrolled + booked/default = solid, away = faded, not enrolled = faded
+        // Color logic: enrolled/booked = solid, away = faded, not enrolled = faded
         const levelKey = prog.level?.split('-')[0] ?? ''
         const colors = LEVEL_CAL_COLORS[levelKey] ?? DEFAULT_CAL_COLORS
         const att = sessionAttendanceMap.get(s.id)
-        const isAway = isEnrolled && att?.allAway === true
-        const color = (isEnrolled && !isAway) ? colors.enrolled : colors.available
+        const hasBooking = isEnrolled || att?.booked === true
+        const isAway = hasBooking && att?.allAway === true
+        const color = (hasBooking && !isAway) ? colors.enrolled : colors.available
 
         const eventDate = new Date(s.date + 'T12:00:00')
         const dayOfWeek = eventDate.getDay()
@@ -356,12 +384,17 @@ export function ParentProgramFilters({
       })
   }, [sessions, programMap, calendarFilter, enrolledProgramIds, recommendedProgramIds, sessionAttendanceMap])
 
-  const filteredByLevel = filterByLevel(programs, levelFilter)
-  const filteredByType = programs.filter(p => p.type === typeFilter)
+  // Apply "For you" filter globally — show only enrolled/recommended programs
+  const relevantPrograms = useMemo(() => {
+    if (calendarFilter === 'all') return programs
+    return programs.filter(p => enrolledProgramIds.has(p.id) || recommendedProgramIds.has(p.id))
+  }, [programs, calendarFilter, enrolledProgramIds, recommendedProgramIds])
+
+  const filteredByLevel = filterByLevel(relevantPrograms, levelFilter)
+  const filteredByType = relevantPrograms.filter(p => p.type === typeFilter)
 
   const tabDefs: { key: Tab; label: string; icon: typeof Calendar }[] = [
     { key: 'calendar', label: 'Calendar', icon: Calendar },
-    { key: 'list', label: 'All', icon: List },
     { key: 'level', label: 'Level', icon: Layers },
     { key: 'type', label: 'Type', icon: Tag },
   ]
@@ -395,51 +428,46 @@ export function ParentProgramFilters({
         ))}
       </div>
 
-      {tab === 'calendar' && (
-        <div className="mt-4">
-          {/* Calendar filter toggle */}
-          <div className="mb-3 flex items-center gap-1">
-            <button
-              onClick={() => setCalendarFilter('mine')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                calendarFilter === 'mine'
-                  ? 'bg-[#2B5EA7] text-white shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-            >
-              <Filter className="size-3" />
-              For you
-            </button>
-            <button
-              onClick={() => setCalendarFilter('all')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                calendarFilter === 'all'
-                  ? 'bg-[#2B5EA7] text-white shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-            >
-              <Calendar className="size-3" />
-              All sessions
-            </button>
-          </div>
+      {/* Global "For you" toggle — applies across all views */}
+      <div className="mt-3 flex items-center gap-1">
+        <button
+          onClick={() => setCalendarFilter('mine')}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+            calendarFilter === 'mine'
+              ? 'bg-[#2B5EA7] text-white shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Filter className="size-3" />
+          For you
+        </button>
+        <button
+          onClick={() => setCalendarFilter('all')}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+            calendarFilter === 'all'
+              ? 'bg-[#2B5EA7] text-white shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Calendar className="size-3" />
+          All
+        </button>
+      </div>
 
+      {tab === 'calendar' && (
+        <div className="mt-3">
           {calendarEvents.length > 0 || sessions.length > 0 ? (
             <WeeklyCalendar
               events={calendarEvents}
               players={familyPlayers}
               enrolledPlayersMap={enrolledPlayersMap}
+              sessionEnrolledMap={sessionEnrolledMap}
               onBookSession={bookSession}
               onMarkAway={markSessionAway}
             />
           ) : (
             <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No scheduled sessions.</p>
           )}
-        </div>
-      )}
-
-      {tab === 'list' && (
-        <div className="mt-4">
-          <ProgramGrid items={programs} />
         </div>
       )}
 

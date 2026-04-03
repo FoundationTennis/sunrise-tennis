@@ -192,6 +192,9 @@ export interface CalendarPlayer {
 /** Map of programId → Set of enrolled playerIds */
 export type EnrolledPlayersMap = Record<string, string[]>
 
+/** Map of sessionId → Set of enrolled/booked playerIds (overrides enrolledPlayersMap per session) */
+export type SessionEnrolledMap = Record<string, string[]>
+
 /** Popup container that auto-clamps to stay within calendar bounds */
 function PopupContainer({
   popupRef,
@@ -244,6 +247,7 @@ function PopupActions({
   event,
   players,
   enrolledPlayersMap,
+  sessionEnrolledMap,
   selectedPlayerIds,
   setSelectedPlayerIds,
   actionLoading,
@@ -253,6 +257,7 @@ function PopupActions({
   event: CalendarEvent
   players?: CalendarPlayer[]
   enrolledPlayersMap?: EnrolledPlayersMap
+  sessionEnrolledMap?: SessionEnrolledMap
   selectedPlayerIds: Set<string>
   setSelectedPlayerIds: (ids: Set<string>) => void
   actionLoading: boolean
@@ -276,7 +281,10 @@ function PopupActions({
     )
   }
 
-  const enrolledPlayerIds = new Set(enrolledPlayersMap?.[event.programId] ?? [])
+  // Use session-level enrolled map (includes booked players), fallback to program-level
+  const enrolledPlayerIds = new Set(
+    sessionEnrolledMap?.[event.sessionId!] ?? enrolledPlayersMap?.[event.programId] ?? []
+  )
   const enrolledPlayers = players.filter(p => enrolledPlayerIds.has(p.id))
   const availablePlayers = players.filter(p => !enrolledPlayerIds.has(p.id))
 
@@ -373,6 +381,7 @@ export function WeeklyCalendar({
   onEventClick,
   players,
   enrolledPlayersMap,
+  sessionEnrolledMap,
   onBookSession,
   onMarkAway,
   onCancelPrivate,
@@ -385,6 +394,8 @@ export function WeeklyCalendar({
   players?: CalendarPlayer[]
   /** Which players are enrolled in which programs */
   enrolledPlayersMap?: EnrolledPlayersMap
+  /** Per-session enrolled/booked players (overrides enrolledPlayersMap) */
+  sessionEnrolledMap?: SessionEnrolledMap
   /** Called when user books a session for selected players */
   onBookSession?: (sessionId: string, programId: string, playerIds: string[]) => Promise<{ error?: string }>
   /** Called when user marks a player as away for a session */
@@ -830,6 +841,7 @@ export function WeeklyCalendar({
               event={popupEvent}
               players={players}
               enrolledPlayersMap={enrolledPlayersMap}
+              sessionEnrolledMap={sessionEnrolledMap}
               selectedPlayerIds={selectedPlayerIds}
               setSelectedPlayerIds={setSelectedPlayerIds}
               actionLoading={actionLoading}
