@@ -175,6 +175,7 @@ function generateCoachAvailabilityEvents(
   idPrefix: string,
   colorIdx: number,
   endDateStr: string,
+  ownBookings?: ExistingBooking[],
 ): CalendarEvent[] {
   const today = new Date()
   const endDate = new Date(endDateStr + 'T23:59:59')
@@ -225,14 +226,35 @@ function generateCoachAvailabilityEvents(
 
             eventId++
             if (isBooked) {
-              calEvents.push({
-                id: `${idPrefix}-booked-${eventId}`,
-                title: 'Booked',
-                subtitle: coachName,
-                dayOfWeek, startTime, endTime,
-                date: dateStr,
-                color: bookedColor,
-              })
+              // Check if this is the family's own booking
+              const ownBooking = ownBookings?.find(b =>
+                b.sessions?.coach_id === coachId &&
+                b.sessions?.date === dateStr &&
+                b.sessions?.start_time === startTime &&
+                b.status !== 'cancelled'
+              )
+              if (ownBooking) {
+                const playerName = ownBooking.player_id // Will be resolved by event click
+                const label = ownBooking.approval_status === 'pending' ? 'Pending' : 'Confirmed'
+                calEvents.push({
+                  id: `own-${ownBooking.id}`,
+                  title: `Private w/ ${coachName}`,
+                  subtitle: label,
+                  dayOfWeek, startTime, endTime,
+                  date: dateStr,
+                  color: `${availColor.bg} ${availColor.hover}`,
+                  selectable: true,
+                })
+              } else {
+                calEvents.push({
+                  id: `${idPrefix}-booked-${eventId}`,
+                  title: 'Booked',
+                  subtitle: coachName,
+                  dayOfWeek, startTime, endTime,
+                  date: dateStr,
+                  color: bookedColor,
+                })
+              }
             } else {
               calEvents.push({
                 id: `${idPrefix}-avail-${eventId}`,
@@ -372,6 +394,7 @@ export function AvailabilityCalendar({
   const [duration, setDuration] = useState<30 | 60>(30)
   const [bookingPopup, setBookingPopup] = useState<{ slot: TimeSlot; coachId: string } | null>(null)
   const [viewPopup, setViewPopup] = useState<ExistingBooking | null>(null)
+  const [dayPopup, setDayPopup] = useState<string | null>(null) // YYYY-MM-DD for monthly day click
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [isStanding, setIsStanding] = useState(false)
 
@@ -433,7 +456,7 @@ export function AvailabilityCalendar({
           coachWindows.filter(w => w.coach_id === coach.id),
           coachExceptions.filter(e => e.coach_id === coach.id),
           bookedSessions.filter(s => s.coach_id === coach.id),
-          duration, coach.id, idx, rangeEndDate,
+          duration, coach.id, idx, rangeEndDate, existingBookings,
         )
       )
     }
@@ -445,7 +468,7 @@ export function AvailabilityCalendar({
       coachWindows.filter(w => w.coach_id === selectedCoach.id),
       coachExceptions.filter(e => e.coach_id === selectedCoach.id),
       bookedSessions.filter(s => s.coach_id === selectedCoach.id),
-      duration, selectedCoach.id, idx, rangeEndDate,
+      duration, selectedCoach.id, idx, rangeEndDate, existingBookings,
     )
   }, [activeTab, selectedCoach, bookableCoaches, coachWindows, coachExceptions, bookedSessions, duration, rangeEndDate, coachColorMap])
 
@@ -472,6 +495,13 @@ export function AvailabilityCalendar({
 
   const handleEventClick = (event: CalendarEvent) => {
     if (!event.selectable || !event.date) return
+
+    // Own booking on any tab — show view/cancel popup
+    if (event.id.startsWith('own-')) {
+      const bookingId = event.id.replace('own-', '')
+      const booking = existingBookings.find(b => b.id === bookingId)
+      if (booking) { setViewPopup(booking); return }
+    }
 
     if (activeTab === 'yours') {
       const booking = existingBookings.find(b => b.id === event.id)
@@ -534,8 +564,26 @@ export function AvailabilityCalendar({
         )}
       </div>
 
-      {/* Coach pricing */}
-      {selectedCoach && activeTab !== 'all' && (
+      {/* Coach color legend — shown on All Coaches tab */}
+      {activeTab === 'all' && (
+        <div className="space-y-1">
+          {bookableCoaches.map((coach, i) => {
+            const dotColors = ['bg-[#2B5EA7]', 'bg-[#E87450]', 'bg-[#8B78B0]', 'bg-[#F5B041]', 'bg-[#6480A4]']
+            return (
+              <div key={coach.id} className="flex items-center gap-2">
+                <span className={cn('size-2.5 rounded-full', dotColors[i % dotColors.length])} />
+                <span className="text-xs font-medium text-foreground">{coach.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">${(coach.rate_per_hour_cents / 200).toFixed(0)}</span>/30min · <span className="font-semibold text-foreground">${(coach.rate_per_hour_cents / 100).toFixed(0)}</span>/hr
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Coach pricing — individual coach tab */}
+      {selectedCoach && activeTab !== 'all' && activeTab !== 'yours' && (
         <p className="text-xs text-muted-foreground">
           <span className="font-semibold text-foreground">${(selectedCoach.rate_per_hour_cents / 200).toFixed(0)}</span>/30min · <span className="font-semibold text-foreground">${(selectedCoach.rate_per_hour_cents / 100).toFixed(0)}</span>/hr
         </p>
@@ -551,7 +599,7 @@ export function AvailabilityCalendar({
           headerLeft={<ViewToggle viewMode={viewMode} setViewMode={setViewMode} />}
         />
       ) : (
-        <MonthlyCalendar events={activeEvents} onDayClick={() => setViewMode('weekly')} />
+        <MonthlyCalendar events={activeEvents} onDayClick={(dateStr) => setDayPopup(dateStr)} />
       )}
 
       {/* ── View existing booking popup ──────────────────────────────── */}
@@ -716,6 +764,60 @@ export function AvailabilityCalendar({
           </div>
         </div>
       )}
+
+      {/* ── Monthly day popup ────────────────────────────────────────── */}
+      {dayPopup && (() => {
+        const dayEvents = activeEvents.filter(e => e.date === dayPopup)
+        const dateObj = new Date(dayPopup + 'T12:00:00')
+        const dateLabel = dateObj.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
+        const dotColors = ['bg-[#2B5EA7]', 'bg-[#E87450]', 'bg-[#8B78B0]', 'bg-[#F5B041]', 'bg-[#6480A4]']
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center" onClick={() => setDayPopup(null)}>
+            <div className="w-full max-w-md animate-slide-up rounded-t-2xl bg-popover p-5 shadow-elevated sm:rounded-2xl" style={{ maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+              <div className="flex items-start justify-between">
+                <h3 className="text-sm font-semibold text-foreground">{dateLabel}</h3>
+                <button type="button" onClick={() => setDayPopup(null)} className="rounded-lg p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"><X className="size-4" /></button>
+              </div>
+
+              {dayEvents.length === 0 ? (
+                <p className="mt-3 text-xs text-muted-foreground">No sessions on this day</p>
+              ) : (
+                <div className="mt-3 space-y-1.5">
+                  {dayEvents.map(ev => {
+                    // Determine coach color
+                    const coachId = ev.id.startsWith('own-')
+                      ? existingBookings.find(b => b.id === ev.id.replace('own-', ''))?.sessions?.coach_id
+                      : ev.id.split('-avail-')[0].split('-booked-')[0]
+                    const cIdx = coachId ? (coachColorMap.get(coachId) ?? 0) : 0
+                    const dotColor = dotColors[cIdx % dotColors.length]
+
+                    return (
+                      <button
+                        key={ev.id}
+                        type="button"
+                        disabled={!ev.selectable}
+                        onClick={() => {
+                          setDayPopup(null)
+                          handleEventClick(ev)
+                        }}
+                        className={cn(
+                          'flex w-full items-center gap-2.5 rounded-lg border p-2.5 text-left text-xs transition-colors',
+                          ev.selectable ? 'border-border hover:bg-muted/30 cursor-pointer' : 'border-border/50 opacity-60 cursor-default'
+                        )}
+                      >
+                        <span className={cn('size-2.5 shrink-0 rounded-full', dotColor)} />
+                        <span className="font-medium">{formatTimeShort(ev.startTime)}</span>
+                        <span className="text-muted-foreground">{ev.subtitle ?? ev.title}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

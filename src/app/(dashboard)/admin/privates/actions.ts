@@ -322,7 +322,7 @@ export async function adminBatchConfirm(formData: FormData) {
       const { data: session } = await supabase.from('sessions').select('coaches:coach_id(user_id)').eq('id', booking.session_id!).single()
       const coachUserId = (session?.coaches as unknown as { user_id: string } | null)?.user_id
       if (coachUserId) await sendPushToUser(coachUserId, { title: 'Booking Confirmed', body: 'A private lesson has been confirmed', url: '/coach/privates' })
-    } catch { /* non-blocking */ }
+    } catch (err) { console.error('Batch confirm notification error:', err) }
 
     confirmed++
   }
@@ -359,7 +359,10 @@ export async function adminBatchDecline(formData: FormData) {
     try {
       const { data: parentRole } = await supabase.from('user_roles').select('user_id').eq('family_id', booking.family_id).eq('role', 'parent').limit(1).single()
       if (parentRole) await sendPushToUser(parentRole.user_id, { title: 'Booking Declined', body: 'Your private lesson request was not accepted', url: '/parent/bookings' })
-    } catch { /* non-blocking */ }
+      const { data: session } = await supabase.from('sessions').select('coaches:coach_id(user_id)').eq('id', booking.session_id!).single()
+      const coachUserId = (session?.coaches as unknown as { user_id: string } | null)?.user_id
+      if (coachUserId) await sendPushToUser(coachUserId, { title: 'Booking Declined', body: 'A private lesson was declined', url: '/coach/privates' })
+    } catch (err) { console.error('Batch decline notification error:', err) }
 
     declined++
   }
