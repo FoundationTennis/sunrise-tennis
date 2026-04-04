@@ -558,16 +558,19 @@ export function ActivityTabs({
             )}
           </div>
 
-          {/* Active Sessions */}
+          {/* Logged In Users */}
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <Monitor className="size-4" />
-              Active Sessions
+              Logged In Users
             </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Users whose last auth event was a login (no signout since).
+            </p>
             {activeSessions.length === 0 ? (
               <Card>
                 <CardContent className="py-6 text-center text-sm text-muted-foreground">
-                  No active sessions found.
+                  No logged-in users detected.
                 </CardContent>
               </Card>
             ) : (
@@ -578,8 +581,7 @@ export function ActivityTabs({
                       <TableHead>User</TableHead>
                       <TableHead className="hidden sm:table-cell">IP</TableHead>
                       <TableHead className="hidden md:table-cell">Client</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="hidden sm:table-cell">Last Active</TableHead>
+                      <TableHead>Last Login</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -602,9 +604,6 @@ export function ActivityTabs({
                         <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                           {formatTime(s.created_at)}
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground whitespace-nowrap">
-                          {s.refreshed_at ? formatTime(s.refreshed_at) : '-'}
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -612,7 +611,7 @@ export function ActivityTabs({
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              {activeSessions.length} active session{activeSessions.length !== 1 ? 's' : ''}
+              {activeSessions.length} user{activeSessions.length !== 1 ? 's' : ''} logged in
             </p>
           </div>
         </div>
