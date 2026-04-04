@@ -5,10 +5,6 @@ import { formatDate } from '@/lib/utils/dates'
 import {
   Gift,
   MinusCircle,
-  CheckCircle2,
-  Clock,
-  CloudRain,
-  XCircle,
 } from 'lucide-react'
 
 interface Charge {
@@ -55,21 +51,6 @@ function cleanDescription(desc: string): string {
   return desc.replace(/\s*-\s*\d{4}-\d{2}-\d{2}\s*$/, '')
 }
 
-function SessionStatusIcon({ status }: { status: string | null | undefined }) {
-  switch (status) {
-    case 'completed':
-      return <CheckCircle2 className="size-3.5 shrink-0 text-success" />
-    case 'scheduled':
-      return <Clock className="size-3.5 shrink-0 text-primary" />
-    case 'rained_out':
-      return <CloudRain className="size-3.5 shrink-0 text-warning" />
-    case 'cancelled':
-      return <XCircle className="size-3.5 shrink-0 text-danger" />
-    default:
-      return null
-  }
-}
-
 export function ChargesList({ charges }: { charges: Charge[] }) {
   const activeCharges = charges.filter(c => c.status !== 'voided')
   const positiveCharges = activeCharges.filter(c => c.amount_cents > 0)
@@ -89,23 +70,18 @@ export function ChargesList({ charges }: { charges: Charge[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Current Charges</h2>
-        <span className="text-sm font-medium tabular-nums text-foreground">
-          {formatCurrency(totalCents)}
-        </span>
-      </div>
+      <h2 className="text-lg font-semibold text-foreground">Current Charges</h2>
 
       {positiveCharges.length > 0 ? (
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground" />
                 <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Description</th>
                 <th className="hidden px-4 py-2.5 text-left font-medium text-muted-foreground sm:table-cell">Player</th>
                 <th className="hidden px-4 py-2.5 text-left font-medium text-muted-foreground sm:table-cell">Date</th>
-                <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">Amount</th>
+                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground w-24">Status</th>
+                <th className="px-4 py-2.5 text-right font-medium text-muted-foreground w-28">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -124,6 +100,17 @@ export function ChargesList({ charges }: { charges: Charge[] }) {
                 )
               })}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-border bg-muted/30">
+                <td colSpan={3} className="px-4 py-3 font-semibold text-foreground">
+                  Total
+                </td>
+                <td className="hidden sm:table-cell" />
+                <td className="px-4 py-3 text-right tabular-nums text-lg font-bold text-foreground">
+                  {formatCurrency(totalCents)}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       ) : (
@@ -168,6 +155,21 @@ export function ChargesList({ charges }: { charges: Charge[] }) {
   )
 }
 
+function statusLabel(status: string | null | undefined): { text: string; className: string } {
+  switch (status) {
+    case 'completed':
+      return { text: 'Completed', className: 'text-success' }
+    case 'scheduled':
+      return { text: 'Scheduled', className: 'text-primary' }
+    case 'rained_out':
+      return { text: 'Rained out', className: 'text-warning' }
+    case 'cancelled':
+      return { text: 'Cancelled', className: 'text-danger' }
+    default:
+      return { text: '', className: '' }
+  }
+}
+
 function CatChargeRows({
   label,
   charges,
@@ -181,10 +183,11 @@ function CatChargeRows({
     <>
       {/* Category header row */}
       <tr className="bg-muted/30">
-        <td colSpan={4} className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <td colSpan={3} className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {label}
         </td>
-        <td className="px-4 py-2 text-right text-xs font-semibold tabular-nums text-muted-foreground">
+        <td className="hidden sm:table-cell" />
+        <td className="px-4 py-2 text-right text-xs font-bold tabular-nums text-foreground">
           {formatCurrency(totalCents)}
         </td>
       </tr>
@@ -195,27 +198,29 @@ function CatChargeRows({
           : c.created_at
             ? formatDate(c.created_at)
             : '-'
+        const ss = statusLabel(c.session_status)
 
         return (
           <tr key={c.id} className="border-b border-border/50 last:border-b-0">
-            <td className="w-8 pl-4 py-2">
-              <SessionStatusIcon status={c.session_status} />
-            </td>
-            <td className="px-4 py-2 text-foreground">
+            <td className="px-4 py-2.5 text-foreground">
               <span className="line-clamp-1">{cleanDescription(c.description)}</span>
-              {/* Mobile: show player + date inline */}
+              {/* Mobile: show player + date + status inline */}
               <span className="block text-xs text-muted-foreground sm:hidden">
                 {c.player_name && <>{c.player_name} · </>}
                 {displayDate}
+                {ss.text && <> · <span className={ss.className}>{ss.text}</span></>}
               </span>
             </td>
-            <td className="hidden px-4 py-2 text-muted-foreground sm:table-cell">
+            <td className="hidden px-4 py-2.5 text-muted-foreground sm:table-cell">
               {c.player_name ?? '-'}
             </td>
-            <td className="hidden px-4 py-2 tabular-nums text-muted-foreground sm:table-cell">
+            <td className="hidden px-4 py-2.5 tabular-nums text-muted-foreground sm:table-cell">
               {displayDate}
             </td>
-            <td className="px-4 py-2 text-right tabular-nums font-medium text-foreground">
+            <td className="px-4 py-2.5 text-xs">
+              <span className={`hidden sm:inline ${ss.className}`}>{ss.text}</span>
+            </td>
+            <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-foreground">
               {formatCurrency(c.amount_cents)}
             </td>
           </tr>

@@ -4,6 +4,7 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/dates'
 import { PageHeader } from '@/components/page-header'
 import { Card, CardContent } from '@/components/ui/card'
+import { StatementWaiveButton } from './statement-waive-button'
 
 export default async function FamilyStatementPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,14 +20,14 @@ export default async function FamilyStatementPage({ params }: { params: Promise<
 
   if (!family) notFound()
 
-  // Interleave charges and payments by date for a chronological ledger
   type LedgerEntry = {
     date: string
     description: string
-    debit: number // charge (positive amount)
-    credit: number // payment or credit charge
+    debit: number
+    credit: number
     type: 'charge' | 'payment'
     sessionStatus?: string | null
+    chargeId?: string | null
   }
 
   const entries: LedgerEntry[] = []
@@ -41,6 +42,7 @@ export default async function FamilyStatementPage({ params }: { params: Promise<
         credit: 0,
         type: 'charge',
         sessionStatus: session?.status ?? null,
+        chargeId: c.id,
       })
     } else {
       entries.push({
@@ -50,6 +52,7 @@ export default async function FamilyStatementPage({ params }: { params: Promise<
         credit: Math.abs(c.amount_cents),
         type: 'charge',
         sessionStatus: session?.status ?? null,
+        chargeId: c.id,
       })
     }
   }
@@ -66,7 +69,6 @@ export default async function FamilyStatementPage({ params }: { params: Promise<
 
   entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-  // Running balance
   let runningBalance = 0
   const ledger = entries.map(e => {
     runningBalance += e.debit - e.credit
@@ -141,7 +143,8 @@ export default async function FamilyStatementPage({ params }: { params: Promise<
                     <th className="pb-2 pr-4 font-medium text-muted-foreground">Session</th>
                     <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">Charge</th>
                     <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">Credit</th>
-                    <th className="pb-2 text-right font-medium text-muted-foreground">Balance</th>
+                    <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">Balance</th>
+                    <th className="pb-2 font-medium text-muted-foreground print:hidden" />
                   </tr>
                 </thead>
                 <tbody>
@@ -164,16 +167,21 @@ export default async function FamilyStatementPage({ params }: { params: Promise<
                       <td className="py-2 pr-4 text-right tabular-nums text-success">
                         {entry.credit > 0 ? formatCurrency(entry.credit) : ''}
                       </td>
-                      <td className={`py-2 text-right tabular-nums font-medium ${
+                      <td className={`py-2 pr-4 text-right tabular-nums font-medium ${
                         entry.balance < 0 ? 'text-danger' : entry.balance > 0 ? 'text-foreground' : 'text-muted-foreground'
                       }`}>
                         {formatCurrency(entry.balance)}
+                      </td>
+                      <td className="py-2 print:hidden">
+                        {entry.type === 'charge' && entry.debit > 0 && entry.chargeId && (
+                          <StatementWaiveButton chargeId={entry.chargeId} />
+                        )}
                       </td>
                     </tr>
                   ))}
                   {ledger.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-4 text-center text-muted-foreground">
+                      <td colSpan={7} className="py-4 text-center text-muted-foreground">
                         No transactions recorded.
                       </td>
                     </tr>

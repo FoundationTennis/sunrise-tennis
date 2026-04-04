@@ -80,6 +80,108 @@ export async function recordPayment(formData: FormData) {
   redirect('/admin/payments')
 }
 
+// ── Record Payment Linked to Charges ──────────────────────────────────────
+
+export async function recordPaymentForCharges(formData: FormData) {
+  const user = await requireAdmin()
+  const supabase = await createClient()
+
+  const familyId = formData.get('family_id') as string
+  const paymentMethod = formData.get('payment_method') as string
+  const status = (formData.get('status') as string) || 'received'
+  const notes = formData.get('notes') as string | null
+  const chargeIdsRaw = formData.get('charge_ids') as string | null
+  const amountDollarsRaw = formData.get('amount_dollars') as string
+  const description = formData.get('description') as string | null
+
+  if (!familyId || !paymentMethod || !amountDollarsRaw) {
+    redirect('/admin/payments?error=' + encodeURIComponent('Missing required fields'))
+  }
+
+  const amountCents = Math.round(parseFloat(amountDollarsRaw) * 100)
+  if (amountCents <= 0) {
+    redirect('/admin/payments?error=' + encodeURIComponent('Amount must be greater than zero'))
+  }
+
+  // Parse selected charge IDs (if linking to charges)
+  let chargeIds: string[] = []
+  if (chargeIdsRaw) {
+    try { chargeIds = JSON.parse(chargeIdsRaw) } catch { /* empty */ }
+  }
+
+  // Build description from linked charges if not provided
+  let paymentDescription = description || null
+  if (chargeIds.length > 0 && !paymentDescription) {
+    paymentDescription = `Payment for ${chargeIds.length} charge${chargeIds.length !== 1 ? 's' : ''}`
+  }
+
+  const { data: payment, error } = await supabase
+    .from('payments')
+    .insert({
+      family_id: familyId,
+      amount_cents: amountCents,
+      payment_method: paymentMethod,
+      status,
+      description: paymentDescription,
+      notes: notes || null,
+      received_at: status === 'received' ? new Date().toISOString() : null,
+      recorded_by: user?.id,
+    })
+    .select('id')
+    .single()
+
+  if (error || !payment) {
+    redirect('/admin/payments?error=' + encodeURIComponent(error?.message || 'Failed to record payment'))
+  }
+
+  // If charge IDs provided, create direct allocations instead of FIFO
+  if (chargeIds.length > 0 && status === 'received') {
+    let remaining = amountCents
+    for (const chargeId of chargeIds) {
+      if (remaining <= 0) break
+      // Get charge amount
+      const { data: charge } = await supabase
+        .from('charges')
+        .select('amount_cents')
+        .eq('id', chargeId)
+        .single()
+      if (!charge) continue
+      const alloc = Math.min(remaining, charge.amount_cents)
+      await supabase.from('payment_allocations').insert({
+        payment_id: payment.id,
+        charge_id: chargeId,
+        amount_cents: alloc,
+      })
+      remaining -= alloc
+    }
+  } else if (status === 'received') {
+    // FIFO allocation for custom amount
+    await allocatePayment(supabase, payment.id)
+  }
+
+  await recalculateBalance(supabase, familyId)
+
+  // Send receipt notification
+  if (status === 'received') {
+    try {
+      await sendNotificationToTarget({
+        title: 'Payment Received',
+        body: `Payment of ${formatCurrency(amountCents)} received - thank you!`,
+        url: '/parent/payments',
+        targetType: 'family',
+        targetId: familyId,
+      })
+    } catch (e) {
+      console.error('Failed to send payment receipt notification:', e)
+    }
+  }
+
+  revalidatePath('/admin/payments')
+  revalidatePath('/admin')
+  revalidatePath(`/admin/families/${familyId}`)
+  redirect('/admin/payments?success=' + encodeURIComponent('Payment recorded'))
+}
+
 // ── Confirm Pending Payment ──────────────────────────────────────────────
 
 export async function confirmPayment(paymentId: string) {
