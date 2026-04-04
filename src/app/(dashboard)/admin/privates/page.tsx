@@ -28,6 +28,7 @@ export default async function AdminPrivatesPage({
         families:family_id(display_id, family_name)
       `)
       .eq('booking_type', 'private')
+      .neq('approval_status', 'declined')
       .order('booked_at', { ascending: false })
       .limit(100),
     supabase

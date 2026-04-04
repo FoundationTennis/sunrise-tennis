@@ -139,7 +139,8 @@ export default async function CoachesPage({
       {/* Coach cards */}
       <div className="grid gap-4 sm:grid-cols-2">
         {coachCards.map(coach => (
-          <Card key={coach.id} className="overflow-hidden">
+          <Link key={coach.id} href={`/admin/coaches/${coach.id}`} className="block">
+          <Card className="overflow-hidden transition-all hover:shadow-elevated hover:scale-[1.01]">
             <CardContent className="p-0">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
@@ -203,6 +204,7 @@ export default async function CoachesPage({
               </div>
             </CardContent>
           </Card>
+          </Link>
         ))}
       </div>
 

@@ -59,6 +59,22 @@ export function getTerm(term: number, year: number): SchoolTerm | undefined {
   return SA_TERMS.find(t => t.term === term && t.year === year)
 }
 
+/** Parse term from URL search params — safe for server components */
+export function getTermFromParams(
+  searchParams: { term?: string; year?: string },
+): { termNum: number; year: number; start: string; end: string } | null {
+  const { term, year } = searchParams
+  if (!term || !year) return null
+  const found = SA_TERMS.find(t => t.term === Number(term) && t.year === Number(year))
+  if (!found) return null
+  return {
+    termNum: found.term,
+    year: found.year,
+    start: found.start.toISOString().split('T')[0],
+    end: found.end.toISOString().split('T')[0],
+  }
+}
+
 /** Returns all configured terms sorted by year + term number */
 export function getAllTerms(): SchoolTerm[] {
   return [...SA_TERMS].sort((a, b) => a.year - b.year || a.term - b.term)

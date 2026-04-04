@@ -66,19 +66,3 @@ export function TermPicker() {
   )
 }
 
-/** Helper to read term from searchParams on the server side */
-export function getTermFromParams(
-  searchParams: { term?: string; year?: string },
-): { termNum: number; year: number; start: string; end: string } | null {
-  const { term, year } = searchParams
-  if (!term || !year) return null
-  const allTerms = getAllTerms()
-  const found = allTerms.find(t => t.term === Number(term) && t.year === Number(year))
-  if (!found) return null
-  return {
-    termNum: found.term,
-    year: found.year,
-    start: found.start.toISOString().split('T')[0],
-    end: found.end.toISOString().split('T')[0],
-  }
-}

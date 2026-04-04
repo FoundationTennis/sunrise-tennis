@@ -8,8 +8,8 @@ import { GraduationCap, Plus } from 'lucide-react'
 import { ProgramViews } from './program-views'
 import { GenerateTermSessionsForm } from '../sessions/generate-term-sessions-form'
 import { CreateSessionForm } from '../sessions/create-session-form'
-import { getCurrentOrNextTerm, getTerm } from '@/lib/utils/school-terms'
-import { TermPicker, getTermFromParams } from '@/components/term-picker'
+import { getCurrentOrNextTerm, getTermFromParams } from '@/lib/utils/school-terms'
+import { TermPicker } from '@/components/term-picker'
 
 export default async function ProgramsPage({
   searchParams,
