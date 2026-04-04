@@ -89,14 +89,24 @@ export function getTermForDate(date: Date): SchoolTerm | null {
   return null
 }
 
-/** Get the current or next upcoming term */
+/**
+ * Get the current or next upcoming term.
+ * If we're in the last week of a term, returns the NEXT term instead
+ * (programs are wrapping up, admin wants to see next term by default).
+ */
 export function getCurrentOrNextTerm(from: Date): SchoolTerm | null {
   const day = startOfDay(from)
   // Inside a term?
-  for (const t of SA_TERMS) {
-    if (day >= startOfDay(t.start) && day <= startOfDay(t.end)) return t
+  for (let i = 0; i < SA_TERMS.length; i++) {
+    const t = SA_TERMS[i]
+    if (day >= startOfDay(t.start) && day <= startOfDay(t.end)) {
+      // If less than 7 days until term ends and a next term exists, return next term
+      const daysLeft = daysBetween(day, startOfDay(t.end))
+      if (daysLeft <= 7 && SA_TERMS[i + 1]) return SA_TERMS[i + 1]
+      return t
+    }
   }
-  // Next upcoming
+  // Between terms — next upcoming
   for (const t of SA_TERMS) {
     if (startOfDay(t.start) > day) return t
   }

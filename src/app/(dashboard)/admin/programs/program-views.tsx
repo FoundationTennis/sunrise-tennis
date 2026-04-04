@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { List, Layers, Tag, MapPin } from 'lucide-react'
+import { List, Layers, Tag, MapPin, ArrowUpDown } from 'lucide-react'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -130,11 +130,41 @@ function filterByLevel(programs: Program[], level: string): Program[] {
   })
 }
 
+type SortKey = 'name' | 'type' | 'level' | 'day' | null
+type SortDir = 'asc' | 'desc'
+
+const LEVEL_ORDER: Record<string, number> = { blue: 0, red: 1, orange: 2, green: 3, yellow: 4, competitive: 5 }
+
+function sortPrograms(programs: Program[], key: SortKey, dir: SortDir): Program[] {
+  if (!key) return programs
+  return [...programs].sort((a, b) => {
+    let cmp = 0
+    if (key === 'type') cmp = (a.type ?? '').localeCompare(b.type ?? '')
+    else if (key === 'level') cmp = (LEVEL_ORDER[a.level ?? ''] ?? 99) - (LEVEL_ORDER[b.level ?? ''] ?? 99)
+    else if (key === 'day') cmp = (a.day_of_week ?? 99) - (b.day_of_week ?? 99) || (a.start_time ?? '').localeCompare(b.start_time ?? '')
+    else if (key === 'name') cmp = a.name.localeCompare(b.name)
+    return dir === 'desc' ? -cmp : cmp
+  })
+}
+
 export function ProgramViews({ programs, sessionTallies }: { programs: Program[]; sessionTallies?: Record<string, SessionTally> }) {
   const [tab, setTab] = useState<Tab>('list')
   const [levelFilter, setLevelFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [venueFilter, setVenueFilter] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>(null)
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedPrograms = useMemo(() => sortPrograms(programs, sortKey, sortDir), [programs, sortKey, sortDir])
 
   const levels = useMemo(() => {
     const lvls = new Set<string>()
@@ -188,7 +218,7 @@ export function ProgramViews({ programs, sessionTallies }: { programs: Program[]
       {tab === 'list' && (
         <>
           <div className="mt-4 space-y-3 md:hidden">
-            {programs.map((p) => <ProgramCard key={p.id} program={p} tally={sessionTallies?.[p.id]} />)}
+            {sortedPrograms.map((p) => <ProgramCard key={p.id} program={p} tally={sessionTallies?.[p.id]} />)}
           </div>
           <div className="mt-4 hidden md:block">
             <div className="overflow-hidden rounded-lg border border-border bg-card shadow-card">
@@ -196,9 +226,9 @@ export function ProgramViews({ programs, sessionTallies }: { programs: Program[]
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Level</TableHead>
-                    <TableHead>Day / Time</TableHead>
+                    <TableHead><button onClick={() => toggleSort('type')} className="flex items-center gap-1 hover:text-foreground"><span>Type</span><ArrowUpDown className="size-3" /></button></TableHead>
+                    <TableHead><button onClick={() => toggleSort('level')} className="flex items-center gap-1 hover:text-foreground"><span>Level</span><ArrowUpDown className="size-3" /></button></TableHead>
+                    <TableHead><button onClick={() => toggleSort('day')} className="flex items-center gap-1 hover:text-foreground"><span>Day / Time</span><ArrowUpDown className="size-3" /></button></TableHead>
                     <TableHead>Enrolled</TableHead>
                     <TableHead>Sessions</TableHead>
                     <TableHead className="text-right">Per Session</TableHead>
@@ -207,7 +237,7 @@ export function ProgramViews({ programs, sessionTallies }: { programs: Program[]
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {programs.map((p) => {
+                  {sortedPrograms.map((p) => {
                     const enrolled = p.program_roster?.[0]?.count ?? 0
                     const t = sessionTallies?.[p.id]
                     const sessionCount = t ? (t.scheduled ?? t.completed + t.planned) : 0

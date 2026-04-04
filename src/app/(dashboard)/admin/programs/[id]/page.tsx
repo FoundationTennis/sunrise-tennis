@@ -1,14 +1,17 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatTime, formatDate } from '@/lib/utils/dates'
 import { calculateGroupCoachPay } from '@/lib/utils/billing'
+import { getCurrentOrNextTerm, getTermFromParams } from '@/lib/utils/school-terms'
 import { ProgramEditForm } from './program-edit-form'
 import { AdminEnrolForm } from './admin-enrol-form'
 import { RosterTable } from './roster-table'
 import { PageHeader } from '@/components/page-header'
 import { StatusBadge } from '@/components/status-badge'
+import { TermPicker } from '@/components/term-picker'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
@@ -21,11 +24,36 @@ import {
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-export default async function ProgramDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProgramDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ term?: string; year?: string }>
+}) {
   const { id } = await params
+  const { term: termParam, year: yearParam } = await searchParams
   const supabase = await createClient()
 
-  const [{ data: program }, { data: roster }, { data: allFamilies }, { data: sessions }, { data: programCoaches }] = await Promise.all([
+  // Determine term
+  const termFromUrl = getTermFromParams({ term: termParam, year: yearParam })
+  const currentTerm = termFromUrl
+    ? { num: termFromUrl.termNum, year: termFromUrl.year, start: termFromUrl.start, end: termFromUrl.end }
+    : (() => {
+        const t = getCurrentOrNextTerm(new Date())
+        if (!t) {
+          const year = new Date().getFullYear()
+          return { num: 1, year, start: `${year}-01-01`, end: `${year}-12-31` }
+        }
+        return {
+          num: t.term,
+          year: t.year,
+          start: t.start.toISOString().split('T')[0],
+          end: t.end.toISOString().split('T')[0],
+        }
+      })()
+
+  const [{ data: program }, { data: roster }, { data: allFamilies }, { data: sessions }, { data: programCoaches }, { data: allCoaches }, { data: sessionCoachAttendances }] = await Promise.all([
     supabase.from('programs').select('*').eq('id', id).single(),
     supabase.from('program_roster')
       .select('id, status, enrolled_at, players(id, first_name, last_name, ball_color, current_focus, families(display_id, family_name))')
@@ -35,19 +63,50 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
       .select('id, display_id, family_name, players(id, first_name, last_name)')
       .eq('status', 'active')
       .order('display_id'),
+    // Sessions filtered by term
     supabase.from('sessions')
       .select('id, date, start_time, end_time, status, coach_id, coaches:coach_id(name)')
       .eq('program_id', id)
+      .gte('date', currentTerm.start)
+      .lte('date', currentTerm.end)
       .order('date'),
     supabase.from('program_coaches')
-      .select('coach_id, role, coaches:coach_id(name, hourly_rate)')
+      .select('id, coach_id, role, coaches:coach_id(id, name, hourly_rate)')
       .eq('program_id', id),
+    supabase.from('coaches').select('id, name').eq('status', 'active').order('name'),
+    // Session-level coach attendances for this program's sessions
+    supabase.from('session_coach_attendances')
+      .select('session_id, coach_id, status, coaches:coach_id(name)'),
   ])
 
   if (!program) notFound()
 
-  // Fetch attendance records for all sessions of this program
+  // Filter session coach attendances to only our sessions
   const sessionIds = (sessions ?? []).map(s => s.id)
+  const sessionIdSet = new Set(sessionIds)
+  const relevantCoachAttendances = (sessionCoachAttendances ?? []).filter(
+    sca => sessionIdSet.has(sca.session_id)
+  )
+
+  // Build per-session assistant coach info
+  const sessionAssistants: Record<string, { name: string; status: string }[]> = {}
+  for (const sca of relevantCoachAttendances) {
+    const coach = sca.coaches as unknown as { name: string } | null
+    if (!coach) continue
+    if (!sessionAssistants[sca.session_id]) sessionAssistants[sca.session_id] = []
+    sessionAssistants[sca.session_id].push({ name: coach.name.split(' ')[0], status: sca.status })
+  }
+
+  // Also add program-level assistants as default for sessions without explicit attendance
+  const programAssistants = (programCoaches ?? [])
+    .filter(pc => pc.role === 'assistant')
+    .map(pc => {
+      const c = pc.coaches as unknown as { name: string } | null
+      return c?.name?.split(' ')[0] ?? ''
+    })
+    .filter(Boolean)
+
+  // Fetch attendance records for sessions in this term
   let allAttendances: { session_id: string; player_id: string; status: string }[] = []
   if (sessionIds.length > 0) {
     const { data } = await supabase
@@ -57,7 +116,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
     allAttendances = data ?? []
   }
 
-  // Fetch charges for all sessions of this program
+  // Fetch charges for sessions in this term
   let allCharges: { session_id: string | null; amount_cents: number; status: string }[] = []
   if (sessionIds.length > 0) {
     const { data } = await supabase
@@ -75,7 +134,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
     cancelled: (sessions ?? []).filter(s => s.status === 'cancelled' || s.status === 'rained_out').length,
   }
 
-  // ── Attendance per session (for the sessions table) ──
+  // ── Attendance per session ──
   const attendancePerSession: Record<string, number> = {}
   for (const a of allAttendances) {
     if (a.status === 'present') {
@@ -99,7 +158,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
     }
   }
 
-  // ── Latest lesson notes per player (from most recent completed session) ──
+  // ── Latest lesson notes per player ──
   let latestPlayerNotes: Record<string, { focus: string | null; progress: string | null }> = {}
   const sortedCompleted = (sessions ?? [])
     .filter(s => s.status === 'completed')
@@ -123,7 +182,6 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
   const gstCents = Math.round(totalRevenueCents / 11)
   const revenueExGst = totalRevenueCents - gstCents
 
-  // Calculate total coach pay for all completed sessions
   let totalCoachPay = 0
   const completedSessions = (sessions ?? []).filter(s => s.status === 'completed')
   for (const s of completedSessions) {
@@ -143,89 +201,128 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
   }
 
   const enrolledCount = roster?.length ?? 0
+  const leadCoach = (programCoaches ?? []).find(pc => pc.role === 'primary')
+  const leadCoachData = leadCoach?.coaches as unknown as { id: string; name: string } | null
+  const assistantCoaches = (programCoaches ?? []).filter(pc => pc.role === 'assistant')
+
+  // Term price calculation
+  const scheduledSessionCount = sessionStatusCounts.completed + sessionStatusCounts.scheduled
+  const termPrice = program.per_session_cents && scheduledSessionCount > 0
+    ? program.per_session_cents * scheduledSessionCount
+    : null
 
   return (
     <div className="max-w-4xl">
       <PageHeader
         title={program.name}
         breadcrumbs={[{ label: 'Programs', href: '/admin/programs' }]}
-        action={<StatusBadge status={program.status ?? 'active'} />}
+        action={
+          <div className="flex items-center gap-3">
+            <Suspense>
+              <TermPicker />
+            </Suspense>
+            <StatusBadge status={program.status ?? 'active'} />
+          </div>
+        }
       />
 
       <div className="mt-6 space-y-8">
-        {/* Program details */}
-        <Card>
-          <CardContent className="pt-6">
-            <h2 className="text-lg font-semibold text-foreground">Program Details</h2>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground">Type</dt>
-                <dd className="text-sm capitalize text-foreground">{program.type}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground">Level</dt>
-                <dd className="text-sm capitalize text-foreground">{program.level}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground">Day</dt>
-                <dd className="text-sm text-foreground">{program.day_of_week != null ? DAYS[program.day_of_week] : '-'}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground">Time</dt>
-                <dd className="text-sm text-foreground">
-                  {program.start_time ? formatTime(program.start_time) : '-'}
-                  {program.end_time ? ` - ${formatTime(program.end_time)}` : ''}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground">Capacity</dt>
-                <dd className="text-sm text-foreground">{program.max_capacity ?? 'Unlimited'}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground">Per Session</dt>
-                <dd className="text-sm text-foreground">{program.per_session_cents ? formatCurrency(program.per_session_cents) : '-'}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground">Term Fee</dt>
-                <dd className="text-sm text-foreground">{program.term_fee_cents ? formatCurrency(program.term_fee_cents) : '-'}</dd>
-              </div>
-              {program.description && (
-                <div className="sm:col-span-3">
-                  <dt className="text-xs font-medium text-muted-foreground">Description</dt>
-                  <dd className="text-sm text-foreground">{program.description}</dd>
+        {/* Program details + Coaches */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardContent className="pt-6">
+              <h2 className="text-lg font-semibold text-foreground">Program Details</h2>
+              <dl className="mt-4 grid gap-3 grid-cols-2">
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Type</dt>
+                  <dd className="text-sm capitalize text-foreground">{program.type}</dd>
                 </div>
-              )}
-            </dl>
-          </CardContent>
-        </Card>
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Level</dt>
+                  <dd className="text-sm capitalize text-foreground">{program.level}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Day / Time</dt>
+                  <dd className="text-sm text-foreground">
+                    {program.day_of_week != null ? DAYS[program.day_of_week] : '-'}
+                    {program.start_time ? ` ${formatTime(program.start_time)}` : ''}
+                    {program.end_time ? ` - ${formatTime(program.end_time)}` : ''}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Capacity</dt>
+                  <dd className="text-sm text-foreground">{enrolledCount}{program.max_capacity ? `/${program.max_capacity}` : ''}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Per Session</dt>
+                  <dd className="text-sm text-foreground">{program.per_session_cents ? formatCurrency(program.per_session_cents) : '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Term Price</dt>
+                  <dd className="text-sm font-semibold text-foreground">
+                    {termPrice ? `${formatCurrency(termPrice)} (${scheduledSessionCount} sessions)` : '-'}
+                  </dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Coaches */}
+          <Card>
+            <CardContent className="pt-6">
+              <h2 className="text-lg font-semibold text-foreground">Coaches</h2>
+              <div className="mt-4 space-y-3">
+                {leadCoachData ? (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{leadCoachData.name}</p>
+                      <p className="text-xs text-muted-foreground">Lead coach</p>
+                    </div>
+                    <Link href={`/admin/coaches/${leadCoachData.id}`} className="text-xs text-primary hover:underline">View</Link>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No lead coach assigned</p>
+                )}
+                {assistantCoaches.map(ac => {
+                  const c = ac.coaches as unknown as { id: string; name: string } | null
+                  if (!c) return null
+                  return (
+                    <div key={ac.id} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{c.name}</p>
+                        <p className="text-xs text-muted-foreground">Assistant</p>
+                      </div>
+                      <Link href={`/admin/coaches/${c.id}`} className="text-xs text-primary hover:underline">View</Link>
+                    </div>
+                  )
+                })}
+                {assistantCoaches.length === 0 && leadCoachData && (
+                  <p className="text-xs text-muted-foreground">No assistant coaches</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Session status summary */}
         {sessionStatusCounts.total > 0 && (
           <div className="grid gap-3 sm:grid-cols-4">
-            <Card>
-              <CardContent className="pt-4 pb-4 text-center">
-                <p className="text-2xl font-bold text-foreground">{sessionStatusCounts.total}</p>
-                <p className="text-xs text-muted-foreground">Total Sessions</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-4 text-center">
-                <p className="text-2xl font-bold text-success">{sessionStatusCounts.completed}</p>
-                <p className="text-xs text-muted-foreground">Completed</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-4 text-center">
-                <p className="text-2xl font-bold text-foreground">{sessionStatusCounts.scheduled}</p>
-                <p className="text-xs text-muted-foreground">Scheduled</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-4 text-center">
-                <p className="text-2xl font-bold text-danger">{sessionStatusCounts.cancelled}</p>
-                <p className="text-xs text-muted-foreground">Cancelled</p>
-              </CardContent>
-            </Card>
+            <Card><CardContent className="pt-4 pb-4 text-center">
+              <p className="text-2xl font-bold text-foreground">{sessionStatusCounts.total}</p>
+              <p className="text-xs text-muted-foreground">Total</p>
+            </CardContent></Card>
+            <Card><CardContent className="pt-4 pb-4 text-center">
+              <p className="text-2xl font-bold text-success">{sessionStatusCounts.completed}</p>
+              <p className="text-xs text-muted-foreground">Completed</p>
+            </CardContent></Card>
+            <Card><CardContent className="pt-4 pb-4 text-center">
+              <p className="text-2xl font-bold text-foreground">{sessionStatusCounts.scheduled}</p>
+              <p className="text-xs text-muted-foreground">Scheduled</p>
+            </CardContent></Card>
+            <Card><CardContent className="pt-4 pb-4 text-center">
+              <p className="text-2xl font-bold text-danger">{sessionStatusCounts.cancelled}</p>
+              <p className="text-xs text-muted-foreground">Cancelled</p>
+            </CardContent></Card>
           </div>
         )}
 
@@ -241,6 +338,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
                       <TableHead>Date</TableHead>
                       <TableHead>Time</TableHead>
                       <TableHead>Coach</TableHead>
+                      <TableHead>Assistants</TableHead>
                       <TableHead>Attended</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -249,6 +347,16 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
                     {sessions.map((s) => {
                       const coach = s.coaches as unknown as { name: string } | null
                       const attended = attendancePerSession[s.id] ?? 0
+                      const assistants = sessionAssistants[s.id]
+                      // If no explicit session-level assistants, show program-level ones
+                      const assistantDisplay = assistants
+                        ? assistants.map(a => (
+                            <span key={a.name} className={a.status === 'absent' ? 'text-danger line-through' : ''}>
+                              {a.name}
+                            </span>
+                          ))
+                        : programAssistants.map(name => <span key={name}>{name}</span>)
+
                       return (
                         <TableRow key={s.id}>
                           <TableCell>
@@ -263,7 +371,14 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
                             {s.start_time ? formatTime(s.start_time) : '-'}
                             {s.end_time ? ` - ${formatTime(s.end_time)}` : ''}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{coach?.name ?? '-'}</TableCell>
+                          <TableCell className="text-muted-foreground">{coach?.name?.split(' ')[0] ?? '-'}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">
+                            {assistantDisplay.length > 0 ? (
+                              <span className="flex flex-wrap gap-x-2">
+                                {assistantDisplay}
+                              </span>
+                            ) : '-'}
+                          </TableCell>
                           <TableCell className="text-muted-foreground tabular-nums">
                             {s.status === 'completed' ? `${attended}/${enrolledCount}` : '-'}
                           </TableCell>
@@ -276,6 +391,14 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
                   </TableBody>
                 </Table>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {sessions && sessions.length === 0 && (
+          <Card>
+            <CardContent className="pt-6 pb-6 text-center">
+              <p className="text-sm text-muted-foreground">No sessions in Term {currentTerm.num}, {currentTerm.year}</p>
             </CardContent>
           </Card>
         )}
@@ -386,7 +509,6 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
           </CardContent>
         </Card>
 
-        {/* Admin enrol on behalf */}
         <AdminEnrolForm
           programId={id}
           families={(allFamilies ?? []).map(f => ({
@@ -401,7 +523,6 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
           }))}
         />
 
-        {/* Edit */}
         <ProgramEditForm program={program} />
       </div>
     </div>
