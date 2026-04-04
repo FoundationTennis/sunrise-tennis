@@ -31,11 +31,12 @@ export default async function CoachSchedulePage() {
   const nextTermEnd = getCurrentOrNextTermEnd(new Date())
   const termEnd = nextTermEnd ? nextTermEnd.toISOString().split('T')[0] : new Date().getFullYear() + '-12-31'
 
-  // Fetch sessions where coach is primary (direct assignment)
+  // Fetch sessions where coach is primary (direct assignment) — exclude cancelled
   const { data: primarySessions } = await supabase
     .from('sessions')
     .select('id, program_id, coach_id, date, start_time, end_time, status, session_type, coaches:coach_id(name), programs:program_id(name, level, type), venues:venue_id(name)')
     .eq('coach_id', coachId)
+    .neq('status', 'cancelled')
     .gte('date', termStart)
     .lte('date', termEnd)
     .order('date')
@@ -62,6 +63,7 @@ export default async function CoachSchedulePage() {
       .from('sessions')
       .select('id, program_id, coach_id, date, start_time, end_time, status, session_type, coaches:coach_id(name), programs:program_id(name, level, type), venues:venue_id(name)')
       .in('program_id', assistantProgramIds)
+      .neq('status', 'cancelled')
       .gte('date', termStart)
       .lte('date', termEnd)
       .order('date')

@@ -59,6 +59,34 @@ export function getTerm(term: number, year: number): SchoolTerm | undefined {
   return SA_TERMS.find(t => t.term === term && t.year === year)
 }
 
+/** Returns all configured terms sorted by year + term number */
+export function getAllTerms(): SchoolTerm[] {
+  return [...SA_TERMS].sort((a, b) => a.year - b.year || a.term - b.term)
+}
+
+/** Find the term that contains a given date, or null */
+export function getTermForDate(date: Date): SchoolTerm | null {
+  const day = startOfDay(date)
+  for (const t of SA_TERMS) {
+    if (day >= startOfDay(t.start) && day <= startOfDay(t.end)) return t
+  }
+  return null
+}
+
+/** Get the current or next upcoming term */
+export function getCurrentOrNextTerm(from: Date): SchoolTerm | null {
+  const day = startOfDay(from)
+  // Inside a term?
+  for (const t of SA_TERMS) {
+    if (day >= startOfDay(t.start) && day <= startOfDay(t.end)) return t
+  }
+  // Next upcoming
+  for (const t of SA_TERMS) {
+    if (startOfDay(t.start) > day) return t
+  }
+  return null
+}
+
 /** Check if a given date is a SA public holiday */
 export function isPublicHoliday(date: Date): boolean {
   const d = startOfDay(date)

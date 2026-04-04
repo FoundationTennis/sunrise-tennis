@@ -52,23 +52,22 @@ export default async function AdminPrivateBookingsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Private Bookings"
-        description="View and manage all private lesson bookings"
+        title="Booking Management"
+        description="Admin booking, batch confirm/decline"
         breadcrumbs={[{ label: 'Privates', href: '/admin/privates' }]}
       />
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
           {decodeURIComponent(error)}
         </div>
       )}
       {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+        <div className="rounded-lg border border-success/20 bg-success-light px-4 py-3 text-sm text-success">
           {decodeURIComponent(success)}
         </div>
       )}
 
-      {/* Pending booking requests */}
       <PendingBookings
         bookings={(bookings ?? [])
           .filter(b => (b.approval_status as string) === 'pending')
@@ -92,7 +91,6 @@ export default async function AdminPrivateBookingsPage({
         }
       />
 
-      {/* Admin book form */}
       <AdminBookForm
         families={(families ?? []).map(f => ({
           id: f.id, display_id: f.display_id, family_name: f.family_name,
@@ -113,7 +111,6 @@ export default async function AdminPrivateBookingsPage({
         }))}
       />
 
-      {/* Bookings list */}
       <div>
         <h2 className="mb-2 text-sm font-semibold text-foreground">All Bookings</h2>
         {(bookings ?? []).length === 0 ? (
@@ -134,9 +131,7 @@ export default async function AdminPrivateBookingsPage({
                       <div>
                         <p className="text-sm font-medium">
                           {player?.first_name} {player?.last_name}
-                          <span className="ml-1.5 text-xs text-muted-foreground">
-                            ({family?.display_id})
-                          </span>
+                          <span className="ml-1.5 text-xs text-muted-foreground">({family?.display_id})</span>
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {session ? `${formatDate(session.date)} · ${session.start_time ? formatTime(session.start_time) : ''} · ${session.coaches?.name ?? ''}` : ''}

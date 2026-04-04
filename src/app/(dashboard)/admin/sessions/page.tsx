@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function OldSessionsPage() {
-  redirect('/admin/programs')
+  redirect('/admin')
 }

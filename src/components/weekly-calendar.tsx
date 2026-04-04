@@ -808,7 +808,9 @@ export function WeeklyCalendar({
                       className={cn(
                         'w-full rounded-lg border text-left transition-all hover:shadow-md',
                         event.color ?? 'border-primary/30 bg-primary/5',
-                        popupEvent?.id === event.id && 'ring-2 ring-primary'
+                        popupEvent?.id === event.id && 'ring-2 ring-primary',
+                        event.sessionStatus === 'cancelled' && 'opacity-30 grayscale',
+                        event.sessionStatus === 'rained_out' && 'opacity-50 grayscale',
                       )}
                     >
                       <div className="flex items-start justify-between p-3">
@@ -947,7 +949,9 @@ export function WeeklyCalendar({
                           className={cn(
                             'absolute overflow-hidden rounded-md border px-1 py-0.5 text-left transition-all',
                             isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-background brightness-110 z-10' : 'hover:brightness-110',
-                            event.color ?? 'bg-primary border-primary/80 text-white'
+                            event.color ?? 'bg-primary border-primary/80 text-white',
+                            event.sessionStatus === 'cancelled' && 'opacity-25 grayscale line-through',
+                            event.sessionStatus === 'rained_out' && 'opacity-40 grayscale',
                           )}
                           style={{
                             top,

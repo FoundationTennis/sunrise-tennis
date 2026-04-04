@@ -2,11 +2,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { formatCurrency } from '@/lib/utils/currency'
 import { calculateGroupCoachPay } from '@/lib/utils/billing'
-import { getCurrentTermRange } from '@/lib/utils/school-terms'
+import { getCurrentTermRange, getCurrentOrNextTermEnd } from '@/lib/utils/school-terms'
 import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -15,11 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Users, UserCheck, GraduationCap, DollarSign, Plus } from 'lucide-react'
+import { Users, UserCheck, GraduationCap, DollarSign } from 'lucide-react'
+import { OverviewCalendar } from './overview-calendar'
 
 export default async function AdminDashboard() {
   const supabase = await createClient()
   const { start: termStart, end: termEnd } = getCurrentTermRange(new Date())
+  const nextTermEnd = getCurrentOrNextTermEnd(new Date())
+  const sessionEndDate = nextTermEnd ? nextTermEnd.toISOString().split('T')[0] : new Date().getFullYear() + '-12-31'
 
   const [
     { count: familyCount },
@@ -30,6 +32,9 @@ export default async function AdminDashboard() {
     { data: completedSessions },
     { data: coachEarnings },
     { data: allProgramCoaches },
+    { data: calendarSessions },
+    { data: programs },
+    { data: programCoaches },
   ] = await Promise.all([
     supabase.from('families').select('*', { count: 'exact', head: true }),
     supabase.from('players').select('*', { count: 'exact', head: true }),
@@ -48,6 +53,20 @@ export default async function AdminDashboard() {
       .in('status', ['owed', 'paid']),
     supabase.from('program_coaches')
       .select('program_id, coach_id, role'),
+    // Calendar sessions — scheduled + completed only (no cancelled)
+    supabase.from('sessions')
+      .select('id, program_id, date, start_time, end_time, status, session_type, coach_id, coaches:coach_id(name), venues:venue_id(name)')
+      .in('status', ['scheduled', 'completed'])
+      .gte('date', termStart)
+      .lte('date', sessionEndDate)
+      .order('date')
+      .order('start_time'),
+    // Programs for calendar event mapping
+    supabase.from('programs')
+      .select('id, name, level, max_capacity, program_roster(count)'),
+    // Program coaches for calendar
+    supabase.from('program_coaches')
+      .select('program_id, coach_id, role, coaches:coach_id(name)'),
   ])
 
   const totalOutstanding = balances?.reduce((sum, b) => {
@@ -62,7 +81,6 @@ export default async function AdminDashboard() {
     coachPayMap.set(c.id, { name: c.name, groupPay: 0, privatePay: 0 })
   }
 
-  // Calculate group session pay per coach
   for (const s of completedSessions ?? []) {
     let durationMin = 60
     if (s.start_time && s.end_time) {
@@ -71,7 +89,6 @@ export default async function AdminDashboard() {
       durationMin = (eh * 60 + em) - (sh * 60 + sm)
     }
 
-    // Find all coaches assigned to this session's program
     const sessionCoaches = (allProgramCoaches ?? []).filter(pc => pc.program_id === s.program_id)
 
     for (const pc of sessionCoaches) {
@@ -85,7 +102,6 @@ export default async function AdminDashboard() {
       }
     }
 
-    // Also include the direct session coach if not in program_coaches
     if (s.coach_id && !sessionCoaches.some(pc => pc.coach_id === s.coach_id)) {
       const coach = (coaches ?? []).find(c => c.id === s.coach_id)
       if (coach) {
@@ -99,7 +115,6 @@ export default async function AdminDashboard() {
     }
   }
 
-  // Add private earnings
   for (const e of coachEarnings ?? []) {
     const entry = coachPayMap.get(e.coach_id)
     if (entry) entry.privatePay += e.amount_cents
@@ -109,20 +124,86 @@ export default async function AdminDashboard() {
     .filter(r => r.groupPay > 0 || r.privatePay > 0)
     .sort((a, b) => (b.groupPay + b.privatePay) - (a.groupPay + a.privatePay))
 
+  // ── Calendar Session Serialization ──
+  const coachMap: Record<string, { lead: string; assistants: string[] }> = {}
+  for (const pc of programCoaches ?? []) {
+    const coachName = (pc.coaches as unknown as { name: string } | null)?.name ?? 'Unknown'
+    if (!coachMap[pc.program_id]) {
+      coachMap[pc.program_id] = { lead: '', assistants: [] }
+    }
+    if (pc.role === 'primary') {
+      coachMap[pc.program_id].lead = coachName
+    } else {
+      coachMap[pc.program_id].assistants.push(coachName)
+    }
+  }
+
+  // Count booked players per session
+  const sessionIds = (calendarSessions ?? []).map(s => s.id)
+  let attendanceCounts: Record<string, number> = {}
+  if (sessionIds.length > 0) {
+    const { data: counts } = await supabase
+      .from('attendances')
+      .select('session_id')
+      .in('session_id', sessionIds)
+    if (counts) {
+      for (const row of counts) {
+        attendanceCounts[row.session_id] = (attendanceCounts[row.session_id] ?? 0) + 1
+      }
+    }
+  }
+
+  const serializedSessions = (calendarSessions ?? []).map(s => {
+    const coach = s.coaches as unknown as { name: string } | null
+    const venue = s.venues as unknown as { name: string } | null
+    const programCoachInfo = s.program_id ? coachMap[s.program_id] : null
+    return {
+      id: s.id,
+      programId: s.program_id,
+      date: s.date,
+      startTime: s.start_time,
+      endTime: s.end_time,
+      status: s.status,
+      sessionType: (s as Record<string, unknown>).session_type as string | null,
+      coachName: coach?.name ?? programCoachInfo?.lead ?? '',
+      venueName: venue?.name ?? '',
+      bookedCount: attendanceCounts[s.id] ?? 0,
+      leadCoach: programCoachInfo?.lead ?? coach?.name ?? '',
+      assistantCoaches: programCoachInfo?.assistants ?? [],
+    }
+  })
+
+  const serializedPrograms = (programs ?? []).map(p => ({
+    id: p.id,
+    name: p.name,
+    level: p.level,
+    max_capacity: p.max_capacity,
+    program_roster: p.program_roster as { count: number }[],
+  }))
+
   return (
     <div>
       <PageHeader title="Overview" description="Business snapshot at a glance." />
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Families" value={String(familyCount ?? 0)} href="/admin/families" icon={Users} />
-        <StatCard label="Players" value={String(playerCount ?? 0)} icon={UserCheck} />
+        <StatCard label="Players" value={String(playerCount ?? 0)} href="/admin/players" icon={UserCheck} />
         <StatCard label="Programs" value={String(programCount ?? 0)} href="/admin/programs" icon={GraduationCap} />
         <StatCard
           label="Outstanding"
           value={totalOutstanding !== 0 ? formatCurrency(totalOutstanding) : '$0.00'}
           variant={totalOutstanding < 0 ? 'danger' : 'default'}
+          href="/admin/payments"
           icon={DollarSign}
         />
+      </div>
+
+      {/* Schedule Calendar */}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-foreground">This Week</h2>
+        <div className="mt-3">
+          <OverviewCalendar sessions={serializedSessions} programs={serializedPrograms} />
+        </div>
       </div>
 
       {/* Coach Pay Summary */}
@@ -186,21 +267,6 @@ export default async function AdminDashboard() {
           </div>
         </div>
       )}
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        <Button asChild variant="outline" className="h-auto justify-center border-2 border-dashed p-6">
-          <Link href="/admin/families/new" className="flex items-center gap-2">
-            <Plus className="size-4" />
-            Add new family
-          </Link>
-        </Button>
-        <Button asChild variant="outline" className="h-auto justify-center border-2 border-dashed p-6">
-          <Link href="/admin/programs/new" className="flex items-center gap-2">
-            <Plus className="size-4" />
-            Add new program
-          </Link>
-        </Button>
-      </div>
     </div>
   )
 }

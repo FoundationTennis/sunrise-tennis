@@ -1,11 +1,6 @@
-import Link from 'next/link'
 import { createClient, requireAdmin } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/page-header'
-import { Card, CardContent } from '@/components/ui/card'
-import { formatTime } from '@/lib/utils/dates'
-import { Clock, Calendar, DollarSign, Users } from 'lucide-react'
-
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+import { PrivateViews } from './private-views'
 
 export default async function AdminPrivatesPage({
   searchParams,
@@ -17,129 +12,99 @@ export default async function AdminPrivatesPage({
   const supabase = await createClient()
 
   const [
+    { data: bookings },
+    { data: families },
     { data: coaches },
-    { data: availability },
-    { data: pendingBookings, count: pendingCount },
   ] = await Promise.all([
-    supabase.from('coaches').select('id, name, is_owner, pay_period, status, hourly_rate').eq('status', 'active'),
-    supabase.from('coach_availability').select('coach_id, day_of_week, start_time, end_time').order('day_of_week').order('start_time'),
-    supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('booking_type', 'private').eq('approval_status', 'pending'),
+    supabase
+      .from('bookings')
+      .select(`
+        id, family_id, player_id, status, approval_status,
+        price_cents, duration_minutes, booked_at, auto_approved,
+        sessions:session_id(date, start_time, end_time, status,
+          coaches:coach_id(id, name)
+        ),
+        players:player_id(first_name, last_name),
+        families:family_id(display_id, family_name)
+      `)
+      .eq('booking_type', 'private')
+      .order('booked_at', { ascending: false })
+      .limit(100),
+    supabase
+      .from('families')
+      .select('id, display_id, family_name, primary_contact, players(id, first_name, last_name)')
+      .eq('status', 'active')
+      .order('family_name'),
+    supabase
+      .from('coaches')
+      .select('id, name, is_owner, hourly_rate')
+      .eq('status', 'active')
+      .order('name'),
   ])
 
-  // Group availability by coach
-  const coachAvailability = new Map<string, typeof availability>()
-  for (const a of availability ?? []) {
-    const existing = coachAvailability.get(a.coach_id) ?? []
-    existing.push(a)
-    coachAvailability.set(a.coach_id, existing)
-  }
+  // Serialize bookings for client component
+  const serializedBookings = (bookings ?? []).map(b => {
+    const session = b.sessions as unknown as { date: string; start_time: string; end_time: string; status: string; coaches: { id: string; name: string } | null } | null
+    const player = b.players as unknown as { first_name: string; last_name: string } | null
+    const family = b.families as unknown as { display_id: string; family_name: string } | null
+    let displayStatus = b.status
+    if (b.approval_status === 'pending') displayStatus = 'pending'
+    if (b.approval_status === 'declined') displayStatus = 'declined'
+    return {
+      id: b.id,
+      familyId: b.family_id,
+      playerId: b.player_id,
+      playerName: `${player?.first_name ?? ''} ${player?.last_name ?? ''}`.trim(),
+      familyDisplayId: family?.display_id ?? '',
+      familyName: family?.family_name ?? '',
+      coachId: session?.coaches?.id ?? '',
+      coachName: session?.coaches?.name ?? '',
+      date: session?.date ?? '',
+      startTime: session?.start_time ?? '',
+      endTime: session?.end_time ?? '',
+      sessionStatus: session?.status ?? '',
+      status: displayStatus,
+      approvalStatus: b.approval_status as string,
+      priceCents: b.price_cents ?? 0,
+      durationMinutes: b.duration_minutes ?? 30,
+      bookedAt: b.booked_at,
+    }
+  })
+
+  const serializedFamilies = (families ?? []).map(f => ({
+    id: f.id, display_id: f.display_id, family_name: f.family_name,
+    primary_contact: f.primary_contact as { name?: string } | null,
+    players: ((f as unknown as { players: { id: string; first_name: string; last_name: string }[] }).players ?? []),
+  }))
+
+  const serializedCoaches = (coaches ?? []).map(c => ({
+    id: c.id, name: c.name,
+    rate: (c.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0,
+  }))
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Private Lessons"
-        description="Manage coach availability, bookings, and earnings"
+        description="View and manage all private bookings"
       />
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
           {decodeURIComponent(error)}
         </div>
       )}
       {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+        <div className="rounded-lg border border-success/20 bg-success-light px-4 py-3 text-sm text-success">
           {decodeURIComponent(success)}
         </div>
       )}
 
-      {/* Quick links */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Link href="/admin/privates/availability">
-          <Card className="transition-colors hover:bg-accent/50">
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="rounded-lg bg-blue-100 p-2">
-                <Clock className="size-5 text-blue-700" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Availability</p>
-                <p className="text-xs text-muted-foreground">Manage coach schedules</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/admin/privates/bookings">
-          <Card className="transition-colors hover:bg-accent/50">
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="rounded-lg bg-orange-100 p-2">
-                <Calendar className="size-5 text-orange-700" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Bookings</p>
-                <p className="text-xs text-muted-foreground">
-                  {(pendingCount ?? 0) > 0 ? `${pendingCount} pending` : 'No pending requests'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/admin/privates/earnings">
-          <Card className="transition-colors hover:bg-accent/50">
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="rounded-lg bg-green-100 p-2">
-                <DollarSign className="size-5 text-green-700" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Earnings</p>
-                <p className="text-xs text-muted-foreground">Coach pay tracking</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
-      {/* Coach availability overview */}
-      <div>
-        <h2 className="mb-3 text-lg font-semibold text-foreground">Coach Availability</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {(coaches ?? [])
-            .filter(c => ((c.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0) > 0)
-            .sort((a, b) => {
-              const rA = (a.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0
-              const rB = (b.hourly_rate as { private_rate_cents?: number } | null)?.private_rate_cents ?? 0
-              return rB - rA || a.name.localeCompare(b.name)
-            })
-            .map((coach) => {
-            const windows = coachAvailability.get(coach.id) ?? []
-            const firstName = coach.name.split(' ')[0]
-            return (
-              <Card key={coach.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users className="size-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">{firstName}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {coach.pay_period === 'end_of_term' ? 'Term pay' : coach.pay_period === 'fortnightly' ? 'Fortnightly' : 'Weekly pay'}
-                    </span>
-                  </div>
-                  {windows.length > 0 ? (
-                    <div className="mt-2 space-y-1">
-                      {windows.map((w, i) => (
-                        <p key={i} className="text-xs text-muted-foreground">
-                          {DAY_NAMES[w.day_of_week]} {formatTime(w.start_time)} – {formatTime(w.end_time)}
-                        </p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-xs text-muted-foreground">No availability set</p>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      </div>
+      <PrivateViews
+        bookings={serializedBookings}
+        families={serializedFamilies}
+        coaches={serializedCoaches}
+      />
     </div>
   )
 }

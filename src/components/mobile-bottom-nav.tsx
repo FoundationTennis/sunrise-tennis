@@ -41,8 +41,9 @@ export function MobileBottomNav({ items, overflowItems }: MobileBottomNavProps) 
     setShowOverflow(false)
   }, [pathname])
 
+  const rootHref = items[0]?.href
   const isOverflowActive = overflowItems?.some(
-    item => pathname === item.href || (item.href !== '/parent' && pathname.startsWith(item.href))
+    item => pathname === item.href || (item.href !== rootHref && pathname.startsWith(item.href))
   )
 
   return (
@@ -111,7 +112,7 @@ export function MobileBottomNav({ items, overflowItems }: MobileBottomNavProps) 
                 <div className="absolute bottom-full right-0 mb-2 min-w-[160px] rounded-xl border border-border bg-card p-1.5 shadow-elevated">
                   {overflowItems.map((item) => {
                     const isActive = pathname === item.href ||
-                      (item.href !== '/parent' && pathname.startsWith(item.href))
+                      (item.href !== rootHref && pathname.startsWith(item.href))
                     return (
                       <Link
                         key={item.href}
