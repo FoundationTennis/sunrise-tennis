@@ -64,7 +64,7 @@ export default async function FamilyStatementPage({ params }: { params: Promise<
     })
   }
 
-  entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   // Running balance
   let runningBalance = 0

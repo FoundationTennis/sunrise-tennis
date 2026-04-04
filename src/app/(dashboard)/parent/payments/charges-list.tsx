@@ -1,20 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/dates'
-import { StatusBadge } from '@/components/status-badge'
 import {
-  ChevronDown,
-  ChevronRight,
-  Receipt,
   Gift,
   MinusCircle,
-  Users,
-  User,
-  Trophy,
-  CalendarDays,
-  Settings,
   CheckCircle2,
   Clock,
   CloudRain,
@@ -41,22 +31,15 @@ interface Charge {
 
 type Category = 'groups' | 'privates' | 'competitions' | 'events' | 'other'
 
-interface CategoryGroup {
-  category: Category
-  label: string
-  icon: typeof Receipt
-  charges: Charge[]
-  totalCents: number
-  playerGroups: { playerName: string; charges: Charge[]; totalCents: number }[]
+const CATEGORY_LABELS: Record<Category, string> = {
+  groups: 'Groups & Squads',
+  privates: 'Private Lessons',
+  competitions: 'Competitions',
+  events: 'Events',
+  other: 'Other',
 }
 
-const CATEGORY_CONFIG: Record<Category, { label: string; icon: typeof Receipt }> = {
-  groups: { label: 'Groups & Squads', icon: Users },
-  privates: { label: 'Private Lessons', icon: User },
-  competitions: { label: 'Competitions', icon: Trophy },
-  events: { label: 'Events', icon: CalendarDays },
-  other: { label: 'Other', icon: Settings },
-}
+const CATEGORY_ORDER: Category[] = ['groups', 'privates', 'competitions', 'events', 'other']
 
 function categoriseCharge(c: Charge): Category {
   if (c.type === 'private' || c.program_type === 'private') return 'privates'
@@ -67,57 +50,9 @@ function categoriseCharge(c: Charge): Category {
   return 'other'
 }
 
-function groupChargesByCategory(charges: Charge[]): { categories: CategoryGroup[]; credits: Charge[] } {
-  const credits: Charge[] = []
-  const categoryMap = new Map<Category, Charge[]>()
-
-  for (const charge of charges) {
-    if (charge.amount_cents < 0) {
-      credits.push(charge)
-      continue
-    }
-    const cat = categoriseCharge(charge)
-    if (!categoryMap.has(cat)) categoryMap.set(cat, [])
-    categoryMap.get(cat)!.push(charge)
-  }
-
-  const categories: CategoryGroup[] = []
-
-  // Maintain consistent ordering
-  const order: Category[] = ['groups', 'privates', 'competitions', 'events', 'other']
-  for (const cat of order) {
-    const catCharges = categoryMap.get(cat)
-    if (!catCharges || catCharges.length === 0) continue
-
-    const config = CATEGORY_CONFIG[cat]
-    const activeCharges = catCharges.filter(c => c.status !== 'voided')
-    const totalCents = activeCharges.reduce((sum, c) => sum + c.amount_cents, 0)
-
-    // Sub-group by player
-    const playerMap = new Map<string, Charge[]>()
-    for (const c of catCharges) {
-      const key = c.player_name ?? 'General'
-      if (!playerMap.has(key)) playerMap.set(key, [])
-      playerMap.get(key)!.push(c)
-    }
-
-    const playerGroups = [...playerMap.entries()].map(([playerName, pCharges]) => ({
-      playerName,
-      charges: pCharges,
-      totalCents: pCharges.filter(c => c.status !== 'voided').reduce((sum, c) => sum + c.amount_cents, 0),
-    }))
-
-    categories.push({
-      category: cat,
-      label: config.label,
-      icon: config.icon,
-      charges: catCharges,
-      totalCents,
-      playerGroups,
-    })
-  }
-
-  return { categories, credits }
+/** Strip trailing date pattern like " - 2026-04-06" from description for cleaner display */
+function cleanDescription(desc: string): string {
+  return desc.replace(/\s*-\s*\d{4}-\d{2}-\d{2}\s*$/, '')
 }
 
 function SessionStatusIcon({ status }: { status: string | null | undefined }) {
@@ -135,119 +70,67 @@ function SessionStatusIcon({ status }: { status: string | null | undefined }) {
   }
 }
 
-function CategoryCard({ group }: { group: CategoryGroup }) {
-  const [expanded, setExpanded] = useState(false)
-  const activeCharges = group.charges.filter(c => c.status !== 'voided')
-  const Icon = group.icon
-  const hasMultiplePlayers = group.playerGroups.length > 1
-
-  return (
-    <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/30 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-            <Icon className="size-5 text-primary" />
-          </div>
-          <div>
-            <p className="font-medium text-foreground">{group.label}</p>
-            <p className="text-xs text-muted-foreground">
-              {activeCharges.length} item{activeCharges.length !== 1 ? 's' : ''}
-              {hasMultiplePlayers && ` across ${group.playerGroups.length} players`}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-lg font-bold tabular-nums text-foreground">
-            {formatCurrency(group.totalCents)}
-          </span>
-          {expanded
-            ? <ChevronDown className="size-4 text-muted-foreground" />
-            : <ChevronRight className="size-4 text-muted-foreground" />
-          }
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t border-border">
-          {group.playerGroups.map((pg) => (
-            <div key={pg.playerName}>
-              {hasMultiplePlayers && (
-                <div className="flex items-center justify-between bg-muted/30 px-4 py-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">{pg.playerName}</span>
-                  <span className="text-xs font-medium tabular-nums text-muted-foreground">
-                    {formatCurrency(pg.totalCents)}
-                  </span>
-                </div>
-              )}
-              {pg.charges.map((charge) => (
-                <div
-                  key={charge.id}
-                  className={`flex items-center justify-between px-4 py-2.5 text-sm ${
-                    charge.status === 'voided' ? 'opacity-40 line-through' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <SessionStatusIcon status={charge.session_status} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-foreground">{charge.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {charge.session_date
-                          ? formatDate(charge.session_date)
-                          : charge.created_at
-                            ? formatDate(charge.created_at)
-                            : '-'}
-                        {!hasMultiplePlayers && charge.player_name && (
-                          <span className="ml-1.5">- {charge.player_name}</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                    <span className="tabular-nums font-medium text-foreground">
-                      {formatCurrency(charge.amount_cents)}
-                    </span>
-                    <StatusBadge status={charge.status} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-export function ChargesList({
-  charges,
-}: {
-  charges: Charge[]
-}) {
+export function ChargesList({ charges }: { charges: Charge[] }) {
   const activeCharges = charges.filter(c => c.status !== 'voided')
-  const { categories, credits } = groupChargesByCategory(activeCharges)
+  const positiveCharges = activeCharges.filter(c => c.amount_cents > 0)
+  const credits = activeCharges.filter(c => c.amount_cents < 0)
 
-  if (charges.length === 0) {
-    return null
+  // Group by category
+  const grouped = new Map<Category, Charge[]>()
+  for (const c of positiveCharges) {
+    const cat = categoriseCharge(c)
+    if (!grouped.has(cat)) grouped.set(cat, [])
+    grouped.get(cat)!.push(c)
   }
+
+  if (charges.length === 0) return null
+
+  const totalCents = positiveCharges.reduce((sum, c) => sum + c.amount_cents, 0)
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-foreground">Current Charges</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Current Charges</h2>
+        <span className="text-sm font-medium tabular-nums text-foreground">
+          {formatCurrency(totalCents)}
+        </span>
+      </div>
 
-      {categories.length > 0 ? (
-        <div className="space-y-3">
-          {categories.map((group) => (
-            <CategoryCard key={group.category} group={group} />
-          ))}
+      {positiveCharges.length > 0 ? (
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground" />
+                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Description</th>
+                <th className="hidden px-4 py-2.5 text-left font-medium text-muted-foreground sm:table-cell">Player</th>
+                <th className="hidden px-4 py-2.5 text-left font-medium text-muted-foreground sm:table-cell">Date</th>
+                <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CATEGORY_ORDER.map((cat) => {
+                const catCharges = grouped.get(cat)
+                if (!catCharges || catCharges.length === 0) return null
+                const catTotal = catCharges.reduce((sum, c) => sum + c.amount_cents, 0)
+
+                return (
+                  <CatChargeRows
+                    key={cat}
+                    label={CATEGORY_LABELS[cat]}
+                    charges={catCharges}
+                    totalCents={catTotal}
+                  />
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">No outstanding charges.</p>
       )}
 
-      {/* Credits section */}
+      {/* Credits */}
       {credits.length > 0 && (
         <div className="mt-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -263,8 +146,14 @@ export function ChargesList({
                 <div className="flex items-center gap-2">
                   <MinusCircle className="size-4 text-success" />
                   <div>
-                    <p className="text-foreground">{credit.description}</p>
-                    <p className="text-xs text-muted-foreground">{credit.created_at ? formatDate(credit.created_at) : '-'}</p>
+                    <p className="text-foreground">{cleanDescription(credit.description)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {credit.session_date
+                        ? formatDate(credit.session_date)
+                        : credit.created_at
+                          ? formatDate(credit.created_at)
+                          : '-'}
+                    </p>
                   </div>
                 </div>
                 <span className="tabular-nums font-medium text-success">
@@ -276,5 +165,62 @@ export function ChargesList({
         </div>
       )}
     </div>
+  )
+}
+
+function CatChargeRows({
+  label,
+  charges,
+  totalCents,
+}: {
+  label: string
+  charges: Charge[]
+  totalCents: number
+}) {
+  return (
+    <>
+      {/* Category header row */}
+      <tr className="bg-muted/30">
+        <td colSpan={4} className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </td>
+        <td className="px-4 py-2 text-right text-xs font-semibold tabular-nums text-muted-foreground">
+          {formatCurrency(totalCents)}
+        </td>
+      </tr>
+      {/* Charge rows */}
+      {charges.map((c) => {
+        const displayDate = c.session_date
+          ? formatDate(c.session_date)
+          : c.created_at
+            ? formatDate(c.created_at)
+            : '-'
+
+        return (
+          <tr key={c.id} className="border-b border-border/50 last:border-b-0">
+            <td className="w-8 pl-4 py-2">
+              <SessionStatusIcon status={c.session_status} />
+            </td>
+            <td className="px-4 py-2 text-foreground">
+              <span className="line-clamp-1">{cleanDescription(c.description)}</span>
+              {/* Mobile: show player + date inline */}
+              <span className="block text-xs text-muted-foreground sm:hidden">
+                {c.player_name && <>{c.player_name} · </>}
+                {displayDate}
+              </span>
+            </td>
+            <td className="hidden px-4 py-2 text-muted-foreground sm:table-cell">
+              {c.player_name ?? '-'}
+            </td>
+            <td className="hidden px-4 py-2 tabular-nums text-muted-foreground sm:table-cell">
+              {displayDate}
+            </td>
+            <td className="px-4 py-2 text-right tabular-nums font-medium text-foreground">
+              {formatCurrency(c.amount_cents)}
+            </td>
+          </tr>
+        )
+      })}
+    </>
   )
 }

@@ -11,7 +11,7 @@ export function BalanceHero({
   confirmedBalanceCents: number
   projectedBalanceCents: number
 }) {
-  const [view, setView] = useState<'upcoming' | 'current'>('upcoming')
+  const [view, setView] = useState<'current' | 'upcoming'>('current')
 
   const balanceCents = view === 'upcoming' ? projectedBalanceCents : confirmedBalanceCents
   const label = view === 'upcoming' ? 'Upcoming Balance' : 'Current Balance'
@@ -32,16 +32,6 @@ export function BalanceHero({
           {/* Toggle pills */}
           <div className="flex rounded-full bg-white/15 p-0.5 backdrop-blur-sm">
             <button
-              onClick={() => setView('upcoming')}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                view === 'upcoming'
-                  ? 'bg-white/25 text-white shadow-sm'
-                  : 'text-white/60 hover:text-white/80'
-              }`}
-            >
-              Upcoming
-            </button>
-            <button
               onClick={() => setView('current')}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
                 view === 'current'
@@ -50,6 +40,16 @@ export function BalanceHero({
               }`}
             >
               Current
+            </button>
+            <button
+              onClick={() => setView('upcoming')}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                view === 'upcoming'
+                  ? 'bg-white/25 text-white shadow-sm'
+                  : 'text-white/60 hover:text-white/80'
+              }`}
+            >
+              Upcoming
             </button>
           </div>
         </div>
@@ -61,11 +61,7 @@ export function BalanceHero({
         }`}>
           {formatCurrency(balanceCents)}
         </p>
-        <p className="mt-0.5 text-xs text-white/60">
-          {balanceCents < 0 ? 'Outstanding balance' : balanceCents > 0 ? 'Credit on account' : 'Account balance'}
-          {' - '}
-          {subtitle}
-        </p>
+        <p className="mt-0.5 text-xs text-white/60">{subtitle}</p>
       </div>
     </div>
   )
