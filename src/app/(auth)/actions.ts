@@ -2,9 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { validateFormData, loginFormSchema, signupFormSchema, magicLinkFormSchema } from '@/lib/utils/validation'
 import { checkRateLimitAsync } from '@/lib/utils/rate-limit'
+import { logAuthEvent } from '@/lib/utils/auth-logger'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
@@ -20,12 +21,14 @@ export async function login(formData: FormData) {
   }
 
   const { email, password } = parsed.data
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
+    await logAuthEvent({ email, eventType: 'login_failed', method: 'password', success: false, metadata: { error: error.message } })
     redirect(`/login?error=${encodeURIComponent(error.message)}`)
   }
 
+  await logAuthEvent({ userId: data.user?.id, email, eventType: 'login', method: 'password', success: true })
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }
@@ -38,17 +41,20 @@ export async function loginWithMagicLink(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(parsed.error)}`)
   }
 
+  const { email } = parsed.data
   const { error } = await supabase.auth.signInWithOtp({
-    email: parsed.data.email,
+    email,
     options: {
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
     },
   })
 
   if (error) {
+    await logAuthEvent({ email, eventType: 'magic_link_request', method: 'magic_link', success: false, metadata: { error: error.message } })
     redirect(`/login?error=${encodeURIComponent(error.message)}`)
   }
 
+  await logAuthEvent({ email, eventType: 'magic_link_request', method: 'magic_link', success: true })
   redirect('/verify?type=magic-link')
 }
 
@@ -67,7 +73,7 @@ export async function signup(formData: FormData) {
     redirect('/signup?error=' + encodeURIComponent('Too many signup attempts. Please wait a minute.'))
   }
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -82,15 +88,21 @@ export async function signup(formData: FormData) {
   })
 
   if (error) {
+    await logAuthEvent({ email, eventType: 'signup', method: 'password', success: false, metadata: { error: error.message, invite_token: inviteToken || null } })
     const inviteParam = inviteToken ? `&invite=${encodeURIComponent(inviteToken)}` : ''
     redirect(`/signup?error=${encodeURIComponent(error.message)}${inviteParam}`)
   }
 
+  await logAuthEvent({ userId: data.user?.id, email, eventType: 'signup', method: 'password', success: true, metadata: { invite_token: inviteToken || null, full_name: fullName } })
   redirect('/verify?type=signup')
 }
 
 export async function signout() {
+  const user = await getSessionUser()
   const supabase = await createClient()
+  if (user) {
+    await logAuthEvent({ userId: user.id, email: user.email ?? '', eventType: 'signout', success: true })
+  }
   await supabase.auth.signOut()
   revalidatePath('/', 'layout')
   redirect('/login')

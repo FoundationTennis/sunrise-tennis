@@ -12,6 +12,7 @@ import {
   Swords,
   UserPlus,
   UserCog,
+  Shield,
 } from 'lucide-react'
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/admin/payments', label: 'Payments', icon: CreditCard },
   { href: '/admin/competitions', label: 'Comps', icon: Swords },
   { href: '/admin/notifications', label: 'Notifications', icon: Bell },
+  { href: '/admin/activity', label: 'Activity', icon: Shield },
 ]
 
 // Mobile: first 4 visible, rest in overflow
