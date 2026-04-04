@@ -956,3 +956,49 @@ export async function adminBookPlayer(formData: FormData) {
   revalidatePath('/admin/sessions')
   redirect(`/admin/programs/${programId}`)
 }
+
+// ── Mark Session Complete ─────────────────────────────────────────────
+
+export async function adminCompleteSession(sessionId: string) {
+  const user = await requireAdmin()
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('id, program_id, status')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) {
+    redirect('/admin/programs?error=Session+not+found')
+  }
+
+  if (session.status !== 'scheduled') {
+    const pid = session.program_id
+    if (pid) {
+      redirect(`/admin/programs/${pid}/sessions/${sessionId}?error=Session+is+already+${session.status}`)
+    }
+    redirect('/admin/programs?error=Session+is+already+' + session.status)
+  }
+
+  const { error } = await supabase
+    .from('sessions')
+    .update({ status: 'completed', completed_by: user.id })
+    .eq('id', sessionId)
+
+  if (error) {
+    const pid = session.program_id
+    if (pid) {
+      redirect(`/admin/programs/${pid}/sessions/${sessionId}?error=${encodeURIComponent(error.message)}`)
+    }
+    redirect(`/admin/programs?error=${encodeURIComponent(error.message)}`)
+  }
+
+  const pid = session.program_id
+  if (pid) {
+    revalidatePath(`/admin/programs/${pid}/sessions/${sessionId}`)
+    redirect(`/admin/programs/${pid}/sessions/${sessionId}`)
+  }
+  revalidatePath('/admin/programs')
+  redirect('/admin/programs')
+}

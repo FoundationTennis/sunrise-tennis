@@ -3,8 +3,8 @@
 import { useTransition } from 'react'
 import Link from 'next/link'
 import type { CalendarEvent } from '@/components/weekly-calendar'
-import { Users, X, ExternalLink, Eye, CloudRain, XCircle } from 'lucide-react'
-import { cancelSession } from '@/app/(dashboard)/admin/actions'
+import { Users, X, ExternalLink, Eye, CloudRain, XCircle, CheckCircle } from 'lucide-react'
+import { cancelSession, adminCompleteSession } from '@/app/(dashboard)/admin/actions'
 
 const STATUS_STYLES: Record<string, string> = {
   scheduled: 'bg-muted text-muted-foreground',
@@ -22,6 +22,13 @@ export function AdminSessionPopup({ event, onClose }: { event: CalendarEvent; on
       const fd = new FormData()
       fd.set('reason', 'Cancelled from calendar')
       await cancelSession(event.sessionId!, fd)
+    })
+  }
+
+  function handleComplete() {
+    if (!event.sessionId || !confirm('Mark this session as complete?')) return
+    startTransition(async () => {
+      await adminCompleteSession(event.sessionId!)
     })
   }
 
@@ -87,23 +94,33 @@ export function AdminSessionPopup({ event, onClose }: { event: CalendarEvent; on
           )}
         </div>
         {event.sessionStatus === 'scheduled' && event.sessionId && event.programId && (
-          <div className="flex gap-2">
+          <>
             <button
-              onClick={handleCancel}
+              onClick={handleComplete}
               disabled={isPending}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm font-medium text-danger transition-all hover:bg-danger/10 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-sm font-medium text-success transition-all hover:bg-success/10 disabled:opacity-50"
             >
-              <XCircle className="size-3.5" />
-              {isPending ? 'Cancelling...' : 'Cancel'}
+              <CheckCircle className="size-3.5" />
+              {isPending ? 'Completing...' : 'Complete'}
             </button>
-            <Link
-              href={`/admin/programs/${event.programId}/sessions/${event.sessionId}?rainout=1`}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-all hover:bg-blue-100"
-            >
-              <CloudRain className="size-3.5" />
-              Rained Out
-            </Link>
-          </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCancel}
+                disabled={isPending}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm font-medium text-danger transition-all hover:bg-danger/10 disabled:opacity-50"
+              >
+                <XCircle className="size-3.5" />
+                {isPending ? 'Cancelling...' : 'Cancel'}
+              </button>
+              <Link
+                href={`/admin/programs/${event.programId}/sessions/${event.sessionId}?rainout=1`}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-all hover:bg-blue-100"
+              >
+                <CloudRain className="size-3.5" />
+                Rained Out
+              </Link>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -6,6 +6,7 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { calculateGroupCoachPay } from '@/lib/utils/billing'
 import { AttendanceForm } from './attendance-form'
 import { CancelSessionForm } from './cancel-session-form'
+import { MarkCompleteForm } from './mark-complete-form'
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/page-header'
 import { StatusBadge } from '@/components/status-badge'
@@ -384,11 +385,16 @@ export default async function SessionDetailPage({
           </Card>
         )}
 
-        {/* Cancel session */}
+        {/* Mark complete / Cancel session */}
         {session.status === 'scheduled' && (
-          <Suspense>
-            <CancelSessionForm sessionId={sessionId} />
-          </Suspense>
+          <div className="space-y-3">
+            <Suspense>
+              <MarkCompleteForm sessionId={sessionId} />
+            </Suspense>
+            <Suspense>
+              <CancelSessionForm sessionId={sessionId} />
+            </Suspense>
+          </div>
         )}
       </div>
     </div>
