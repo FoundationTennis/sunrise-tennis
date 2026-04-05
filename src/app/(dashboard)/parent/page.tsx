@@ -2,8 +2,10 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { formatCurrency } from '@/lib/utils/currency'
+import { formatTime } from '@/lib/utils/dates'
+import { getTermForDate, getNextTermStart } from '@/lib/utils/school-terms'
 import { EmptyState } from '@/components/empty-state'
-import { Users, GraduationCap, ChevronRight, CalendarDays, MapPin } from 'lucide-react'
+import { Users, GraduationCap, ChevronRight, CalendarDays, MapPin, UserPlus, CreditCard, Ticket, Calendar } from 'lucide-react'
 import { EnrolledCalendar } from './enrolled-calendar'
 
 // Player card style — light pink matching nav bar
@@ -126,6 +128,43 @@ export default async function ParentDashboard() {
   const balanceCents = balance?.confirmed_balance_cents ?? balance?.balance_cents ?? 0
   const firstName = contact?.name?.split(' ')[0] ?? 'Parent'
 
+  // Compute next session from enrolled sessions
+  const now = new Date()
+  const todayStr = now.toISOString().split('T')[0]
+  const currentTime = now.toTimeString().slice(0, 5)
+  const nextSession = enrolledSessions
+    .filter(s => s.date > todayStr || (s.date === todayStr && (s.start_time ?? '') > currentTime))
+    .sort((a, b) => `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`))[0] ?? null
+
+  // Find program name for next session
+  const nextSessionProgram = nextSession
+    ? (enrollments ?? []).find(e => {
+        const prog = e.programs as unknown as { id: string; name: string } | null
+        return prog?.id === nextSession.program_id
+      })
+    : null
+  const nextProgramName = nextSessionProgram
+    ? (nextSessionProgram.programs as unknown as { name: string })?.name
+    : null
+
+  // Format next session date
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const nextSessionLabel = nextSession
+    ? (() => {
+        const d = new Date(nextSession.date + 'T12:00:00')
+        const dayName = DAYS[d.getDay()]
+        const day = d.getDate()
+        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        const month = MONTHS[d.getMonth()]
+        const time = nextSession.start_time ? formatTime(nextSession.start_time) : ''
+        return `${dayName} ${day} ${month}${time ? `, ${time}` : ''}`
+      })()
+    : null
+
+  // Term break awareness
+  const isTermBreak = !getTermForDate(now)
+  const nextTermStart = isTermBreak ? getNextTermStart(now) : null
+
   return (
     <div className="space-y-6">
       {/* ── Hero Banner ── */}
@@ -135,6 +174,17 @@ export default async function ParentDashboard() {
           <div>
             <p className="text-sm font-medium text-white/80">Welcome back</p>
             <h1 className="text-2xl font-bold">{firstName}</h1>
+            {nextSessionLabel && nextProgramName && (
+              <p className="mt-1 text-sm text-white/80">
+                <Calendar className="mr-1 inline size-3.5 align-text-bottom" />
+                Next: <span className="font-medium text-white">{nextProgramName}</span> &mdash; {nextSessionLabel}
+              </p>
+            )}
+            {!nextSession && isTermBreak && nextTermStart && (
+              <p className="mt-1 text-sm text-white/80">
+                Term break &mdash; sessions resume {DAYS[nextTermStart.getDay()]} {nextTermStart.getDate()} {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][nextTermStart.getMonth()]}
+              </p>
+            )}
           </div>
           <Link href="/parent/payments" className="text-right group">
             <p className="text-xs font-medium text-white/70">Current Balance</p>
@@ -150,6 +200,26 @@ export default async function ParentDashboard() {
             </span>
           </Link>
         </div>
+      </div>
+
+      {/* ── Quick Actions ── */}
+      <div className="animate-fade-up flex gap-2 overflow-x-auto pb-1" style={{ animationDelay: '60ms' }}>
+        <Link href="/parent/bookings" className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#F0B8B0]/60 bg-[#FFFBF7] px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-colors hover:bg-[#FFF6ED]">
+          <UserPlus className="size-3.5 text-primary" />
+          Book Private
+        </Link>
+        <Link href="/parent/payments" className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#F0B8B0]/60 bg-[#FFFBF7] px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-colors hover:bg-[#FFF6ED]">
+          <CreditCard className="size-3.5 text-primary" />
+          Make Payment
+        </Link>
+        <Link href="/parent/payments#voucher" className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#F0B8B0]/60 bg-[#FFFBF7] px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-colors hover:bg-[#FFF6ED]">
+          <Ticket className="size-3.5 text-primary" />
+          Submit Voucher
+        </Link>
+        <Link href="/parent/programs" className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#F0B8B0]/60 bg-[#FFFBF7] px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-colors hover:bg-[#FFF6ED]">
+          <GraduationCap className="size-3.5 text-primary" />
+          Browse Programs
+        </Link>
       </div>
 
       {/* ── Two-column: Players + Upcoming Events ── */}
