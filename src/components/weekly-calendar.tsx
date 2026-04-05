@@ -1004,11 +1004,6 @@ export function WeeklyCalendar({
                               {event.capacityLabel}
                             </span>
                           )}
-                          {!event.capacityLabel && event.programType && height >= 36 && (
-                            <span className="absolute bottom-0.5 right-0.5 text-[9px] font-medium opacity-60">
-                              {event.programType === 'competition' ? 'comp' : event.programType}
-                            </span>
-                          )}
                         </button>
                       )
                     })

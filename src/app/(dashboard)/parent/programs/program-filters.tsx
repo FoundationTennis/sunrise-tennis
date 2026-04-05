@@ -3,6 +3,7 @@
 import { useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatTime } from '@/lib/utils/dates'
 import { Badge } from '@/components/ui/badge'
@@ -220,6 +221,8 @@ export function ParentProgramFilters({
   const [levelFilter, setLevelFilter] = useState(strongestLevel)
   const [typeFilter, setTypeFilter] = useState('group')
   const [calendarFilter, setCalendarFilter] = useState<'all' | 'mine'>('mine')
+  // Type toggles for calendar: default groups+squads+comps on, schools off
+  const [calendarTypes, setCalendarTypes] = useState<Set<string>>(() => new Set(['group', 'squad', 'competition']))
   const playerIds = useMemo(() => new Set(familyPlayerIds), [familyPlayerIds])
   const playerLevelSet = useMemo(() => new Set(playerLevels), [playerLevels])
 
@@ -352,6 +355,9 @@ export function ParentProgramFilters({
         if (!prog) return false
         if (!s.start_time || !s.end_time) return false
 
+        // Apply type filter
+        if (!calendarTypes.has(prog.type)) return false
+
         // Apply "For you" filter
         if (calendarFilter === 'mine') {
           return enrolledProgramIds.has(s.program_id) || recommendedProgramIds.has(s.program_id)
@@ -398,7 +404,7 @@ export function ParentProgramFilters({
           playerAttendance: sessionAttendanceMap.get(s.id)?.playerStatus,
         }
       })
-  }, [sessions, programMap, calendarFilter, enrolledProgramIds, recommendedProgramIds, sessionAttendanceMap, remainingSessionsMap])
+  }, [sessions, programMap, calendarFilter, calendarTypes, enrolledProgramIds, recommendedProgramIds, sessionAttendanceMap, remainingSessionsMap])
 
   // Apply "For you" filter globally — show only enrolled/recommended programs
   const relevantPrograms = useMemo(() => {
@@ -501,6 +507,29 @@ export function ParentProgramFilters({
 
       {tab === 'calendar' && (
         <div className="mt-3">
+          {/* Type toggles */}
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {types.map(t => {
+              const isOn = calendarTypes.has(t)
+              const label = t === 'competition' ? 'Comps' : t === 'group' ? 'Groups' : t === 'squad' ? 'Squads' : t === 'school' ? 'Schools' : t
+              return (
+                <button key={t} onClick={() => {
+                  setCalendarTypes(prev => {
+                    const next = new Set(prev)
+                    if (next.has(t)) next.delete(t)
+                    else next.add(t)
+                    return next
+                  })
+                }}
+                  className={cn('rounded-full px-2.5 py-1 text-[11px] font-medium capitalize transition-all',
+                    isOn ? 'bg-primary/10 text-primary border border-primary/30' : 'border border-border text-muted-foreground/50 line-through'
+                  )}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
           {calendarEvents.length > 0 || sessions.length > 0 ? (
             <WeeklyCalendar
               events={calendarEvents}

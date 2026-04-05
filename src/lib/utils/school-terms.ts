@@ -226,19 +226,35 @@ export function getCurrentTermRange(from: Date): { start: string; end: string } 
  * Returns the end date of the next upcoming term (includes current if inside one).
  * Always shows through the next full term so parents can book ahead.
  */
+/**
+ * Returns the booking range end date:
+ * - During Term X: end of Term X holidays (= day before Term X+1 starts)
+ * - During Term X holidays: end of Term X+1
+ * Always returns at least 12 weeks out as a fallback.
+ */
 export function getCurrentOrNextTermEnd(from: Date): Date | null {
   const day = startOfDay(from)
+  const fallback = new Date(day.getTime() + 84 * 24 * 60 * 60 * 1000) // 12 weeks
 
-  // Find the first term that ends after today
+  // Check if we're inside a term
+  const currentTerm = getTermForDate(from)
+  if (currentTerm) {
+    const idx = SA_TERMS.indexOf(currentTerm)
+    const nextTerm = SA_TERMS[idx + 1]
+    // During a term: book through the holidays until next term starts
+    if (nextTerm) {
+      const holidayEnd = new Date(nextTerm.start.getTime() - 24 * 60 * 60 * 1000)
+      return holidayEnd > fallback ? holidayEnd : fallback
+    }
+    return fallback
+  }
+
+  // We're in holidays — find the next term
   for (const t of SA_TERMS) {
-    if (startOfDay(t.end) >= day) {
-      // If we're inside this term or in holidays before it, check if a next term exists
-      const idx = SA_TERMS.indexOf(t)
-      const nextTerm = SA_TERMS[idx + 1]
-      // Always include through the next term if available
-      if (nextTerm) return nextTerm.end
-      return t.end
+    if (startOfDay(t.start) > day) {
+      // During holidays: book through the end of the next term
+      return t.end > fallback ? t.end : fallback
     }
   }
-  return null
+  return fallback
 }

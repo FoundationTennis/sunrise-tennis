@@ -8,7 +8,12 @@ import { VoucherForm, VoucherHistory } from './voucher-form'
 import { BalanceHero } from './balance-hero'
 import { PaymentHistory } from './payment-history'
 
-export default async function ParentPaymentsPage() {
+export default async function ParentPaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; success?: string }>
+}) {
+  const { error, success } = await searchParams
   const supabase = await createClient()
 
   const user = await getSessionUser()
@@ -116,6 +121,17 @@ export default async function ParentPaymentsPage() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {decodeURIComponent(error)}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {decodeURIComponent(success)}
+        </div>
+      )}
+
       {/* ── Balance Hero ── */}
       <BalanceHero
         confirmedBalanceCents={confirmedBalanceCents}

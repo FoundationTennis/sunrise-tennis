@@ -42,8 +42,10 @@ export function EnrolForm({
   const deadlineActive = !earlyBirdDeadline || todayStr <= earlyBirdDeadline
   const hasDiscount = earlyPayDiscountPct && earlyPayDiscountPct > 0 && deadlineActive
 
-  // Calculate prices — always from per-session × remaining, never use fixed term fee
-  const termPrice = perSessionCents && remainingSessions ? perSessionCents * remainingSessions : null
+  // Calculate prices — always from per-session × remaining × number of players
+  const playerCount = Math.max(selectedPlayerIds.length, 1)
+  const termPricePerPlayer = perSessionCents && remainingSessions ? perSessionCents * remainingSessions : null
+  const termPrice = termPricePerPlayer ? termPricePerPlayer * playerCount : null
   const discountedPrice = termPrice && hasDiscount
     ? Math.round(termPrice * (1 - earlyPayDiscountPct / 100))
     : termPrice

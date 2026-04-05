@@ -83,12 +83,19 @@ type PrivateBooking = {
   approvalStatus?: string | null
 }
 
+type AttendanceRecord = {
+  session_id: string
+  player_id: string
+  status: string
+}
+
 type ColorMode = 'player' | 'type'
 
 export function EnrolledCalendar({
   enrollments,
   sessions,
   privateBookings,
+  attendances,
   playerOrder,
   familyPlayers,
   onMarkAway,
@@ -97,6 +104,7 @@ export function EnrolledCalendar({
   enrollments: Enrollment[]
   sessions: SessionData[]
   privateBookings?: PrivateBooking[]
+  attendances?: AttendanceRecord[]
   playerOrder: string[]
   familyPlayers?: CalendarPlayer[]
   onMarkAway?: (sessionId: string, playerId: string) => Promise<{ error?: string }>
@@ -130,6 +138,30 @@ export function EnrolledCalendar({
     }
   }
 
+  // Build attendance maps for per-session data
+  const sessionAttendanceMap = new Map<string, Record<string, string>>()
+  const sessionBookedMap = new Map<string, Set<string>>()
+  for (const a of attendances ?? []) {
+    // Player status per session
+    const status = sessionAttendanceMap.get(a.session_id) ?? {}
+    status[a.player_id] = a.status
+    sessionAttendanceMap.set(a.session_id, status)
+    // Booked players per session (includes both present and absent)
+    const booked = sessionBookedMap.get(a.session_id) ?? new Set<string>()
+    booked.add(a.player_id)
+    sessionBookedMap.set(a.session_id, booked)
+  }
+
+  // Build per-session enrolled map (combines roster enrollment + attendance records)
+  const sessionEnrolledMapData: Record<string, string[]> = {}
+  for (const s of sessions) {
+    if (!s.program_id) continue
+    const enrolled = new Set(enrolledPlayersMapData[s.program_id] ?? [])
+    const booked = sessionBookedMap.get(s.id)
+    if (booked) for (const pid of booked) enrolled.add(pid)
+    if (enrolled.size > 0) sessionEnrolledMapData[s.id] = [...enrolled]
+  }
+
   // Build session-based events
   const sessionEvents: CalendarEvent[] = sessions
     .filter(s => s.start_time && s.end_time && s.program_id)
@@ -159,6 +191,7 @@ export function EnrolledCalendar({
         date: s.date,
         isEnrolled: true,
         sessionId: s.id,
+        playerAttendance: sessionAttendanceMap.get(s.id),
       }
     })
 
@@ -262,6 +295,7 @@ export function EnrolledCalendar({
         events={visibleEvents}
         players={familyPlayers}
         enrolledPlayersMap={enrolledPlayersMapData}
+        sessionEnrolledMap={sessionEnrolledMapData}
         hideCapacity
         onBookSession={async (sid, pid, pids) => {
           const r = await bookSession(sid, pid, pids)

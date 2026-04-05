@@ -365,8 +365,8 @@ function MonthlyCalendar({ events, onDayClick }: { events: CalendarEvent[]; onDa
 
 function ViewToggle({ viewMode, setViewMode }: { viewMode: ViewMode; setViewMode: (v: ViewMode) => void }) {
   const options: { key: ViewMode; label: string; icon: typeof Calendar }[] = [
-    { key: 'week', label: 'Week', icon: Calendar },
     { key: 'day', label: 'Day', icon: List },
+    { key: 'week', label: 'Week', icon: Calendar },
     { key: 'month', label: 'Month', icon: CalendarDays },
   ]
   return (
@@ -592,31 +592,40 @@ export function AvailabilityCalendar({
             })}
           </div>
 
-          {/* Pricing — grouped by rate */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            {(() => {
-              // Group coaches by rate for cleaner display
-              const rateGroups = new Map<number, string[]>()
-              const filteredCoaches = bookableCoaches.filter(c => visibleCoachIds.has(c.id))
-              for (const c of filteredCoaches) {
-                const names = rateGroups.get(c.rate_per_hour_cents) ?? []
-                names.push(c.name)
-                rateGroups.set(c.rate_per_hour_cents, names)
-              }
-              return Array.from(rateGroups.entries())
-                .sort(([a], [b]) => b - a)
-                .map(([rate, names]) => (
-                  <span key={rate}>
-                    {names.length <= 2 ? names.join(' & ') : `${names.length} coaches`}:{' '}
-                    <span className="font-semibold text-foreground text-sm">${(rate / 200).toFixed(0)}</span>
-                    <span className="text-[10px]">/30min</span>
-                    {' · '}
-                    <span className="font-semibold text-foreground text-sm">${(rate / 100).toFixed(0)}</span>
-                    <span className="text-[10px]">/hr</span>
-                  </span>
+          {/* Pricing table */}
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-muted-foreground">
+                <th className="text-left font-medium py-0.5">Coach</th>
+                <th className="text-right font-medium py-0.5">30min</th>
+                <th className="text-right font-medium py-0.5">1hr</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const filteredCoaches = bookableCoaches.filter(c => visibleCoachIds.has(c.id))
+                // Group: Maxim alone, Zoe alone, then rest together
+                const maxim = filteredCoaches.find(c => c.name.toLowerCase().includes('maxim'))
+                const zoe = filteredCoaches.find(c => c.name.toLowerCase().includes('zoe'))
+                const rest = filteredCoaches.filter(c => c !== maxim && c !== zoe)
+                const rows: { label: string; rate: number }[] = []
+                if (maxim) rows.push({ label: maxim.name.split(' ')[0], rate: maxim.rate_per_hour_cents })
+                if (zoe) rows.push({ label: zoe.name.split(' ')[0], rate: zoe.rate_per_hour_cents })
+                if (rest.length > 0) {
+                  const rate = rest[0].rate_per_hour_cents
+                  const label = rest.length <= 2 ? rest.map(c => c.name.split(' ')[0]).join(', ') : 'Other coaches'
+                  rows.push({ label, rate })
+                }
+                return rows.map(r => (
+                  <tr key={r.label} className="border-t border-border/30">
+                    <td className="py-1 text-foreground font-medium">{r.label}</td>
+                    <td className="py-1 text-right font-semibold text-foreground">${(r.rate / 200).toFixed(0)}</td>
+                    <td className="py-1 text-right font-semibold text-foreground">${(r.rate / 100).toFixed(0)}</td>
+                  </tr>
                 ))
-            })()}
-          </div>
+              })()}
+            </tbody>
+          </table>
         </div>
       )}
 

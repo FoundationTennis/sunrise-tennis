@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils/cn'
-import { Ticket, Upload, FileText, Check, AlertCircle } from 'lucide-react'
+import { Ticket, Upload, FileText, Check, AlertCircle, X, User } from 'lucide-react'
 
 interface Player {
   id: string
@@ -39,7 +39,8 @@ function SubmitButton({ label }: { label: string }) {
 }
 
 export function VoucherForm({ players, familyContact, familyAddress }: VoucherFormProps) {
-  const [mode, setMode] = useState<'form' | 'image'>('form')
+  // null = collapsed, 'form' or 'image' = expanded with that mode
+  const [mode, setMode] = useState<'form' | 'image' | null>(null)
   const [selectedPlayerId, setSelectedPlayerId] = useState(players[0]?.id ?? '')
   const [amount, setAmount] = useState<'100' | '200'>('100')
   const [file, setFile] = useState<File | null>(null)
@@ -61,56 +62,94 @@ export function VoucherForm({ players, familyContact, familyAddress }: VoucherFo
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-success/10">
-            <Ticket className="size-5 text-success" />
+        {/* Header row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-success/10">
+              <Ticket className="size-5 text-success" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Sports Voucher</h3>
+              <p className="text-xs text-muted-foreground">SA Sports Vouchers Plus - up to $200 credit</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">Sports Voucher</h3>
-            <p className="text-xs text-muted-foreground">SA Sports Vouchers Plus - up to $200 credit</p>
-          </div>
+          {mode && (
+            <button
+              type="button"
+              onClick={() => setMode(null)}
+              className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <X className="size-4" />
+            </button>
+          )}
         </div>
 
-        {/* Mode toggle */}
-        <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setMode('form')}
-            className={cn(
-              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
-              mode === 'form'
-                ? 'bg-primary text-white shadow-sm'
-                : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50',
-            )}
-          >
-            <FileText className="size-3.5" />
-            Fill Out Form
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('image')}
-            className={cn(
-              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
-              mode === 'image'
-                ? 'bg-primary text-white shadow-sm'
-                : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50',
-            )}
-          >
-            <Upload className="size-3.5" />
-            Upload Voucher
-          </button>
-        </div>
+        {/* Action buttons (shown when collapsed) */}
+        {!mode && (
+          <div className="mt-4 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMode('form')}
+              className="flex items-center gap-1.5"
+            >
+              <FileText className="size-3.5" />
+              Fill Out Form
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMode('image')}
+              className="flex items-center gap-1.5"
+            >
+              <Upload className="size-3.5" />
+              Upload Voucher
+            </Button>
+          </div>
+        )}
 
-        {mode === 'form' ? (
+        {/* Mode toggle (shown when expanded, to switch between modes) */}
+        {mode && (
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setMode('form')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
+                mode === 'form'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50',
+              )}
+            >
+              <FileText className="size-3.5" />
+              Fill Out Form
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('image')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
+                mode === 'image'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50',
+              )}
+            >
+              <Upload className="size-3.5" />
+              Upload Voucher
+            </button>
+          </div>
+        )}
+
+        {/* ── Form Mode ── */}
+        {mode === 'form' && (
           <form action={submitVoucherForm} className="mt-4 space-y-5">
             {/* Shared fields: player + amount */}
-            <PlayerAndAmountFields
+            <PlayerSelector
               players={players}
               selectedPlayerId={selectedPlayerId}
               onPlayerChange={setSelectedPlayerId}
-              amount={amount}
-              onAmountChange={setAmount}
             />
+            <AmountSelector amount={amount} onAmountChange={setAmount} />
 
             {/* ── Child's Information ── */}
             <fieldset className="space-y-3">
@@ -124,13 +163,14 @@ export function VoucherForm({ players, familyContact, familyAddress }: VoucherFo
               <div className="grid grid-cols-2 gap-3">
                 <FormField label="Date of Birth" name="child_dob" defaultValue={playerDob} placeholder="DD/MM/YYYY" required />
                 <div>
-                  <Label htmlFor="child_gender" className="text-xs">Gender</Label>
+                  <Label htmlFor="child_gender" className="text-xs">Gender <span className="text-red-500">*</span></Label>
                   <select
                     id="child_gender"
                     name="child_gender"
                     required
                     className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                   >
+                    <option value="">Select...</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Gender Diverse">Gender Diverse</option>
@@ -138,7 +178,7 @@ export function VoucherForm({ players, familyContact, familyAddress }: VoucherFo
                 </div>
               </div>
               <YesNoField name="first_time" label="Is this the first time your child has joined this activity provider?" />
-              <FormField label="What is the cost to participate in this activity?" name="activity_cost" placeholder="e.g. 260" required />
+              <FormField label="What is the cost to participate in this activity?" name="activity_cost" placeholder="e.g. 260 (whole dollars, no $ sign)" required />
               <YesNoField name="has_disability" label="Has your child been identified as living with a disability?" defaultValue="No" />
               <YesNoField name="english_main_language" label="Is English the main language spoken at home?" defaultValue="Yes" />
               <FormField label="If no, what language do you speak at home?" name="other_language" />
@@ -174,20 +214,21 @@ export function VoucherForm({ players, familyContact, familyAddress }: VoucherFo
 
             <SubmitButton label="Submit Voucher" />
           </form>
-        ) : (
+        )}
+
+        {/* ── Image Mode ── */}
+        {mode === 'image' && (
           <form action={submitVoucherImage} className="mt-4 space-y-4">
-            {/* Shared fields: player + amount */}
-            <PlayerAndAmountFields
+            <PlayerSelector
               players={players}
               selectedPlayerId={selectedPlayerId}
               onPlayerChange={setSelectedPlayerId}
-              amount={amount}
-              onAmountChange={setAmount}
             />
+            <AmountSelector amount={amount} onAmountChange={setAmount} />
 
             {/* File upload */}
             <div>
-              <Label htmlFor="voucher_file" className="text-xs">Upload completed voucher form</Label>
+              <Label htmlFor="voucher_file" className="text-xs">Upload completed voucher form <span className="text-red-500">*</span></Label>
               <div className="mt-1">
                 <label
                   htmlFor="voucher_file"
@@ -241,57 +282,74 @@ export function VoucherForm({ players, familyContact, familyAddress }: VoucherFo
 
 // ── Sub-components ──
 
-function PlayerAndAmountFields({
+/** Tappable player pills instead of dropdown */
+function PlayerSelector({
   players,
   selectedPlayerId,
   onPlayerChange,
-  amount,
-  onAmountChange,
 }: {
   players: Player[]
   selectedPlayerId: string
   onPlayerChange: (id: string) => void
+}) {
+  return (
+    <div>
+      <Label className="text-xs">Which child is this voucher for? <span className="text-red-500">*</span></Label>
+      <div className="mt-1.5 flex flex-wrap gap-2">
+        {players.map((p) => {
+          const isSelected = p.id === selectedPlayerId
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onPlayerChange(p.id)}
+              className={cn(
+                'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all',
+                isSelected
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'border border-border text-foreground hover:bg-muted/50',
+              )}
+            >
+              <User className="size-3.5" />
+              {p.first_name}
+            </button>
+          )
+        })}
+      </div>
+      <input type="hidden" name="player_id" value={selectedPlayerId} />
+    </div>
+  )
+}
+
+function AmountSelector({
+  amount,
+  onAmountChange,
+}: {
   amount: '100' | '200'
   onAmountChange: (v: '100' | '200') => void
 }) {
   return (
-    <>
-      <div>
-        <Label htmlFor="player_id" className="text-xs">Which child is this voucher for?</Label>
-        <select
-          id="player_id"
-          name="player_id"
-          required
-          value={selectedPlayerId}
-          onChange={(e) => onPlayerChange(e.target.value)}
-          className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        >
-          {players.map((p) => (
-            <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
-          ))}
-        </select>
+    <div>
+      <Label className="text-xs">Voucher amount <span className="text-red-500">*</span></Label>
+      <div className="mt-1.5 flex gap-3">
+        {(['100', '200'] as const).map((val) => (
+          <button
+            key={val}
+            type="button"
+            onClick={() => onAmountChange(val)}
+            className={cn(
+              'rounded-full px-4 py-2 text-sm font-medium transition-all',
+              amount === val
+                ? 'bg-primary text-white shadow-sm'
+                : 'border border-border text-foreground hover:bg-muted/50',
+            )}
+          >
+            {val === '100' ? '1 x $100' : '2 x $100'}
+          </button>
+        ))}
       </div>
-      <div>
-        <Label className="text-xs">Voucher amount</Label>
-        <div className="mt-1 flex gap-3">
-          {(['100', '200'] as const).map((val) => (
-            <label key={val} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="amount"
-                value={val}
-                checked={amount === val}
-                onChange={() => onAmountChange(val)}
-                className="accent-primary"
-              />
-              <span className="text-sm">
-                {val === '100' ? '1 x $100' : '2 x $100'}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-    </>
+      <input type="hidden" name="amount" value={amount} />
+    </div>
   )
 }
 
@@ -312,7 +370,10 @@ function FormField({
 }) {
   return (
     <div>
-      <Label htmlFor={name} className="text-xs">{label}</Label>
+      <Label htmlFor={name} className="text-xs">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </Label>
       <Input
         id={name}
         name={name}
@@ -334,22 +395,36 @@ function MedicareFields() {
   const fullMedicare = medicareCard + medicareRef
 
   return (
-    <div>
-      <Label className="text-xs">Medicare number</Label>
-      <div className="mt-1 flex items-center gap-2">
+    <div className="space-y-2">
+      <div>
+        <Label className="text-xs">
+          Medicare card number <span className="text-red-500">*</span>
+        </Label>
+        <p className="text-[10px] text-muted-foreground mb-1">
+          The 10-digit number printed on the front of the Medicare card
+        </p>
         <Input
-          placeholder="Card number (10 digits)"
+          placeholder="e.g. 2440 2156 3"
           maxLength={10}
           value={medicareCard}
           onChange={(e) => setMedicareCard(e.target.value.replace(/\D/g, ''))}
-          className="flex-1"
+          inputMode="numeric"
         />
+      </div>
+      <div>
+        <Label className="text-xs">
+          Reference number (IRN) <span className="text-red-500">*</span>
+        </Label>
+        <p className="text-[10px] text-muted-foreground mb-1">
+          The single digit next to your child&apos;s name on the Medicare card (1-9)
+        </p>
         <Input
-          placeholder="Ref"
+          placeholder="e.g. 5"
           maxLength={1}
           value={medicareRef}
           onChange={(e) => setMedicareRef(e.target.value.replace(/\D/g, ''))}
-          className="w-14 text-center"
+          inputMode="numeric"
+          className="w-20"
         />
       </div>
       <input type="hidden" name="medicare_number" value={fullMedicare} />
@@ -360,7 +435,7 @@ function MedicareFields() {
 function YesNoField({ name, label, defaultValue = '' }: { name: string; label: string; defaultValue?: string }) {
   return (
     <div>
-      <Label htmlFor={name} className="text-xs">{label}</Label>
+      <Label htmlFor={name} className="text-xs">{label} <span className="text-red-500">*</span></Label>
       <select
         id={name}
         name={name}
@@ -453,11 +528,9 @@ export function VoucherHistory({ vouchers }: { vouchers: VoucherRecord[] }) {
 
 function parseAddress(address: string | null): { street: string; suburb: string; postcode: string } {
   if (!address) return { street: '', suburb: '', postcode: '' }
-  // Try to extract postcode (4 digits at end)
   const postcodeMatch = address.match(/\b(\d{4})\s*$/)
   const postcode = postcodeMatch?.[1] ?? ''
   const withoutPostcode = postcodeMatch ? address.slice(0, postcodeMatch.index).trim().replace(/,\s*$/, '') : address
-  // Try to split remaining into street + suburb (last segment after comma)
   const parts = withoutPostcode.split(',').map(s => s.trim())
   if (parts.length >= 2) {
     return { street: parts.slice(0, -1).join(', '), suburb: parts[parts.length - 1], postcode }
@@ -473,7 +546,6 @@ function parseContactName(name: string | null | undefined): { first: string; las
 }
 
 function formatDobForVoucher(isoDate: string): string {
-  // YYYY-MM-DD → DD/MM/YYYY
   const [y, m, d] = isoDate.split('-')
   return `${d}/${m}/${y}`
 }

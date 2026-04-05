@@ -112,6 +112,16 @@ export default async function ParentDashboard() {
     return [...map.values()]
   })()
 
+  // Fetch per-session attendance for overview calendar actions
+  const sessionIds = enrolledSessions.map(s => s.id)
+  const { data: overviewAttendances } = sessionIds.length > 0 && familyPlayerIdList.length > 0
+    ? await supabase
+        .from('attendances')
+        .select('session_id, player_id, status')
+        .in('session_id', sessionIds)
+        .in('player_id', familyPlayerIdList)
+    : { data: [] }
+
   const contact = family?.primary_contact as { name?: string; phone?: string; email?: string } | null
   const balanceCents = balance?.confirmed_balance_cents ?? balance?.balance_cents ?? 0
   const firstName = contact?.name?.split(' ')[0] ?? 'Parent'
@@ -262,6 +272,7 @@ export default async function ParentDashboard() {
                 start_time: s.start_time,
                 end_time: s.end_time,
               }))}
+              attendances={(overviewAttendances ?? []) as { session_id: string; player_id: string; status: string }[]}
               privateBookings={(privateBookings ?? []).map((b) => {
                 const session = b.sessions as unknown as { date: string; start_time: string; end_time: string; status: string; coaches: { name: string } | null } | null
                 const player = b.players as unknown as { first_name: string } | null

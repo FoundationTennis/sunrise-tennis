@@ -475,11 +475,11 @@ export async function fetchAvailableSlots(coachId: string) {
   const supabase = await createClient()
 
   const today = new Date()
-  const threeWeeks = new Date()
-  threeWeeks.setDate(today.getDate() + 21)
+  const { getCurrentOrNextTermEnd } = await import('@/lib/utils/school-terms')
+  const rangeEnd = getCurrentOrNextTermEnd(today) ?? new Date(today.getTime() + 84 * 24 * 60 * 60 * 1000)
 
   const startDate = today.toISOString().split('T')[0]
-  const endDate = threeWeeks.toISOString().split('T')[0]
+  const endDate = rangeEnd.toISOString().split('T')[0]
 
   return getAvailableSlots(supabase, coachId, startDate, endDate)
 }

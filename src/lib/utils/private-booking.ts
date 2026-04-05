@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
+import { getCurrentOrNextTermEnd } from '@/lib/utils/school-terms'
 
 type Supabase = SupabaseClient<Database>
 
@@ -223,7 +224,7 @@ export async function getAvailableSlots(
 /**
  * Validate booking timing constraints.
  * - 24hr minimum notice (except for Maxim's sessions)
- * - 3 week maximum advance booking
+ * - Must be within current term + holidays (or current holidays + next term)
  */
 export function validateBookingConstraints(
   date: string,
@@ -241,10 +242,10 @@ export function validateBookingConstraints(
     }
   }
 
-  // Maximum advance: 3 weeks
-  const weeksUntil = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 7)
-  if (weeksUntil > 3) {
-    return { valid: false, error: 'Bookings can only be made up to 3 weeks in advance' }
+  // Maximum advance: end of term + holidays
+  const rangeEnd = getCurrentOrNextTermEnd(now)
+  if (rangeEnd && sessionDateTime > new Date(rangeEnd.getTime() + 24 * 60 * 60 * 1000)) {
+    return { valid: false, error: 'Bookings can only be made within the current term and holidays' }
   }
 
   // Must be in the future
