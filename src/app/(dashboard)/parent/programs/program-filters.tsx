@@ -125,9 +125,15 @@ function ProgramCard({
 }) {
   const roster = program.program_roster ?? []
   const enrolled = roster.filter((r) => r.status === 'enrolled')
+  const waitlisted = roster.filter((r) => r.status === 'waitlisted')
   const familyEnrolled = enrolled.filter((r) => familyPlayerIds.has(r.player_id))
+  const familyWaitlisted = waitlisted.filter((r) => familyPlayerIds.has(r.player_id))
   const spotsLeft = program.max_capacity ? program.max_capacity - enrolled.length : null
+  const isFull = spotsLeft !== null && spotsLeft <= 0
   const accent = LEVEL_ACCENTS[program.level ?? ''] ?? { bar: 'bg-primary', bg: 'bg-primary/5', badge: 'bg-primary/10 text-primary border-primary/20' }
+
+  // Strip day prefix for display
+  const displayName = formatCalendarTitle(program.name)
 
   return (
     <Link
@@ -141,7 +147,7 @@ function ProgramCard({
       <div className="pl-2">
         <div className="flex items-start justify-between">
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-foreground">{program.name}</p>
+            <p className="font-semibold text-foreground">{displayName}</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {program.day_of_week != null && DAYS[program.day_of_week]}
               {program.start_time && ` · ${formatTime(program.start_time)}`}
@@ -162,14 +168,14 @@ function ProgramCard({
             {program.term_fee_cents && <span className="font-medium">{formatCurrency(program.term_fee_cents)}/term</span>}
           </div>
           <div className="flex items-center gap-2">
-            {spotsLeft !== null && (
-              <span className={`flex items-center gap-1 ${spotsLeft <= 2 ? 'text-danger font-medium' : 'text-muted-foreground'}`}>
-                <Users className="size-3" />
-                {spotsLeft > 0 ? `${spotsLeft} left` : 'Full'}
-              </span>
-            )}
-            {familyEnrolled.length > 0 && (
+            {familyEnrolled.length > 0 ? (
               <Badge variant="outline" className="bg-success-light text-success border-success/20 font-medium">Enrolled</Badge>
+            ) : familyWaitlisted.length > 0 ? (
+              <Badge variant="outline" className="bg-warning-light text-warning border-warning/20 font-medium">Waitlisted</Badge>
+            ) : isFull ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">Waitlist available</span>
+            ) : (
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">Enrol →</span>
             )}
           </div>
         </div>

@@ -879,6 +879,8 @@ export type Database = {
         Row: {
           address: string | null
           billing_prefs: Json | null
+          calendar_token: string | null
+          completed_onboarding: boolean
           created_at: string | null
           display_id: string
           family_name: string
@@ -895,6 +897,8 @@ export type Database = {
         Insert: {
           address?: string | null
           billing_prefs?: Json | null
+          calendar_token?: string | null
+          completed_onboarding?: boolean
           created_at?: string | null
           display_id: string
           family_name: string
@@ -911,6 +915,8 @@ export type Database = {
         Update: {
           address?: string | null
           billing_prefs?: Json | null
+          calendar_token?: string | null
+          completed_onboarding?: boolean
           created_at?: string | null
           display_id?: string
           family_name?: string

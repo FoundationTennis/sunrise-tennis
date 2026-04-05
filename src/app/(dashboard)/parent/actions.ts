@@ -1,5 +1,6 @@
 'use server'
 
+import { randomUUID } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
@@ -133,6 +134,44 @@ export async function updatePlayerDetails(playerId: string, formData: FormData) 
   revalidatePath(`/parent/players/${playerId}`)
   revalidatePath('/parent')
   redirect(`/parent/players/${playerId}?success=Player+details+updated`)
+}
+
+export async function generateCalendarToken() {
+  const supabase = await createClient()
+  const familyId = await getParentFamilyId()
+  if (!familyId) redirect('/login')
+
+  const token = randomUUID()
+
+  const { error: updateError } = await supabase
+    .from('families')
+    .update({ calendar_token: token })
+    .eq('id', familyId)
+
+  if (updateError) {
+    redirect(`/parent/settings?error=${encodeURIComponent(updateError.message)}`)
+  }
+
+  revalidatePath('/parent/settings')
+  redirect('/parent/settings?success=Calendar+link+generated')
+}
+
+export async function revokeCalendarToken() {
+  const supabase = await createClient()
+  const familyId = await getParentFamilyId()
+  if (!familyId) redirect('/login')
+
+  const { error } = await supabase
+    .from('families')
+    .update({ calendar_token: null })
+    .eq('id', familyId)
+
+  if (error) {
+    redirect(`/parent/settings?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath('/parent/settings')
+  redirect('/parent/settings?success=Calendar+link+revoked')
 }
 
 export async function updateNotificationPreferences(formData: FormData) {
