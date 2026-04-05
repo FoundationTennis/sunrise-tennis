@@ -134,3 +134,29 @@ export async function updatePlayerDetails(playerId: string, formData: FormData) 
   revalidatePath('/parent')
   redirect(`/parent/players/${playerId}?success=Player+details+updated`)
 }
+
+export async function updateNotificationPreferences(formData: FormData) {
+  const supabase = await createClient()
+  const familyId = await getParentFamilyId()
+  if (!familyId) redirect('/login')
+
+  const sessionReminders = formData.get('session_reminders') as string
+  const validOptions = ['all', 'first_week_and_privates', 'privates_only', 'off']
+  if (!validOptions.includes(sessionReminders)) {
+    redirect('/parent/settings?error=Invalid+preference')
+  }
+
+  const { error } = await supabase
+    .from('families')
+    .update({
+      notification_preferences: { session_reminders: sessionReminders },
+    })
+    .eq('id', familyId)
+
+  if (error) {
+    redirect(`/parent/settings?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath('/parent/settings')
+  redirect('/parent/settings?success=Notification+preferences+updated')
+}

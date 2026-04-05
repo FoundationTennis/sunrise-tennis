@@ -27,58 +27,35 @@ export default async function DashboardPage() {
   const inviteToken = user.user_metadata?.invite_token as string | undefined
 
   if (inviteToken) {
-    // Look up the invitation
-    const { data: invitation } = await supabase
-      .from('invitations')
-      .select('id, family_id, status, expires_at')
-      .eq('token', inviteToken)
-      .eq('status', 'pending')
-      .single()
+    // Use SECURITY DEFINER RPC to claim the invitation
+    // (RLS blocks direct user_roles INSERT for users with no role)
+    const { data: result } = await supabase.rpc('claim_invitation', {
+      p_token: inviteToken,
+    })
 
-    if (invitation) {
-      const now = new Date()
-      const expires = invitation.expires_at ? new Date(invitation.expires_at) : null
-      const isValid = !expires || expires > now
+    const claimResult = result as { success?: boolean } | null
+    if (claimResult?.success) {
+      // Clear the invite token from user metadata
+      await supabase.auth.updateUser({
+        data: { invite_token: null },
+      })
 
-      if (isValid) {
-        // Create user_roles entry for this parent
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: user.id,
-            role: 'parent',
-            family_id: invitation.family_id,
-          })
-
-        if (!roleError) {
-          // Mark invitation as claimed
-          await supabase
-            .from('invitations')
-            .update({
-              status: 'claimed',
-              claimed_by: user.id,
-              claimed_at: new Date().toISOString(),
-            })
-            .eq('id', invitation.id)
-
-          // Clear the invite token from user metadata
-          await supabase.auth.updateUser({
-            data: { invite_token: null },
-          })
-
-          redirect('/parent')
-        }
-      }
+      redirect('/parent')
     }
   }
 
   // No role assigned and no valid invite — show pending state
   return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <h1 className="text-xl font-semibold text-gray-900">Welcome to Sunrise Tennis</h1>
-      <p className="mt-2 text-sm text-gray-600">
-        Your account is pending role assignment. An admin will set up your access shortly.
-      </p>
+    <div className="gradient-sunrise flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-card/95 p-8 text-center shadow-elevated backdrop-blur">
+        <h1 className="text-xl font-semibold text-foreground">Welcome to Sunrise Tennis</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Your account is being set up. An admin will assign your access shortly.
+        </p>
+        <p className="mt-6 text-xs text-muted-foreground/60">
+          If you received an invite link, please use that link to sign up.
+        </p>
+      </div>
     </div>
   )
 }

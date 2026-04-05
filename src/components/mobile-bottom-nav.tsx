@@ -11,6 +11,7 @@ interface NavItem {
   href: string
   label: string
   icon: LucideIcon
+  badge?: number | boolean
 }
 
 interface MobileBottomNavProps {
@@ -45,6 +46,7 @@ export function MobileBottomNav({ items, overflowItems }: MobileBottomNavProps) 
   const isOverflowActive = overflowItems?.some(
     item => pathname === item.href || (item.href !== rootHref && pathname.startsWith(item.href))
   )
+  const hasOverflowBadge = overflowItems?.some(item => item.badge)
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
@@ -68,7 +70,7 @@ export function MobileBottomNav({ items, overflowItems }: MobileBottomNavProps) 
                 )}
               >
                 <div className={cn(
-                  'flex size-8 items-center justify-center rounded-xl transition-all',
+                  'relative flex size-8 items-center justify-center rounded-xl transition-all',
                   isActive
                     ? 'bg-primary/12 shadow-sm'
                     : ''
@@ -77,6 +79,11 @@ export function MobileBottomNav({ items, overflowItems }: MobileBottomNavProps) 
                     'size-[18px] transition-all',
                     isActive ? 'text-primary' : ''
                   )} />
+                  {item.badge && (
+                    <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white">
+                      {typeof item.badge === 'number' ? (item.badge > 9 ? '9+' : item.badge) : ''}
+                    </span>
+                  )}
                 </div>
                 <span className={cn(isActive && 'font-semibold')}>{item.label}</span>
               </Link>
@@ -96,13 +103,16 @@ export function MobileBottomNav({ items, overflowItems }: MobileBottomNavProps) 
                 )}
               >
                 <div className={cn(
-                  'flex size-8 items-center justify-center rounded-xl transition-all',
+                  'relative flex size-8 items-center justify-center rounded-xl transition-all',
                   isOverflowActive ? 'bg-primary/12 shadow-sm' : ''
                 )}>
                   <MoreHorizontal className={cn(
                     'size-[18px] transition-all',
                     isOverflowActive || showOverflow ? 'text-primary' : ''
                   )} />
+                  {hasOverflowBadge && !showOverflow && (
+                    <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-danger" />
+                  )}
                 </div>
                 <span className={cn((isOverflowActive || showOverflow) && 'font-semibold')}>More</span>
               </button>
@@ -126,6 +136,11 @@ export function MobileBottomNav({ items, overflowItems }: MobileBottomNavProps) 
                       >
                         <item.icon className="size-4" />
                         {item.label}
+                        {item.badge && (
+                          <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-white">
+                            {typeof item.badge === 'number' ? (item.badge > 9 ? '9+' : item.badge) : ''}
+                          </span>
+                        )}
                       </Link>
                     )
                   })}

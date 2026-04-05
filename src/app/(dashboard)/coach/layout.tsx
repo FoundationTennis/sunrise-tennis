@@ -1,7 +1,5 @@
-'use client'
-
-import { NavTabs } from '@/components/nav-tabs'
-import { MobileBottomNav } from '@/components/mobile-bottom-nav'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
+import { NavWrapper } from '@/components/nav-wrapper'
 import {
   LayoutDashboard,
   Calendar,
@@ -10,24 +8,44 @@ import {
   DollarSign,
 } from 'lucide-react'
 
-const navItems = [
-  { href: '/coach', label: 'Overview', icon: LayoutDashboard },
-  { href: '/coach/schedule', label: 'Schedule', icon: Calendar },
-  { href: '/coach/availability', label: 'Availability', icon: Clock },
-  { href: '/coach/privates', label: 'Privates', icon: Users },
-  { href: '/coach/earnings', label: 'Earnings', icon: DollarSign },
-]
+export default async function CoachLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const user = await getSessionUser()
 
-export default function CoachLayout({ children }: { children: React.ReactNode }) {
+  let privatesBadge: number | boolean = false
+
+  if (user) {
+    // Get coach_id for this user
+    const { data: role } = await supabase
+      .from('user_roles')
+      .select('coach_id')
+      .eq('user_id', user.id)
+      .eq('role', 'coach')
+      .single()
+
+    if (role?.coach_id) {
+      // Pending private booking requests for this coach
+      const { count } = await supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('coach_id', role.coach_id)
+        .eq('status', 'pending')
+
+      if (count && count > 0) privatesBadge = count
+    }
+  }
+
+  const navItems = [
+    { href: '/coach', label: 'Overview', icon: LayoutDashboard },
+    { href: '/coach/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/coach/availability', label: 'Availability', icon: Clock },
+    { href: '/coach/privates', label: 'Privates', icon: Users, badge: privatesBadge },
+    { href: '/coach/earnings', label: 'Earnings', icon: DollarSign },
+  ]
+
   return (
-    <div className="pb-20 md:pb-0">
-      {/* Desktop: top tabs */}
-      <div className="hidden md:block">
-        <NavTabs items={navItems} />
-      </div>
+    <NavWrapper items={navItems} mobileVisibleCount={5}>
       {children}
-      {/* Mobile: bottom nav — all 5 items fit */}
-      <MobileBottomNav items={navItems} />
-    </div>
+    </NavWrapper>
   )
 }

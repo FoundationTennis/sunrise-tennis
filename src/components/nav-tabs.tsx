@@ -9,6 +9,7 @@ interface NavItem {
   href: string
   label: string
   icon?: LucideIcon
+  badge?: number | boolean
 }
 
 interface NavTabsProps {
@@ -37,6 +38,14 @@ export function NavTabs({ items }: NavTabsProps) {
           >
             {item.icon && <item.icon className="size-4" />}
             {item.label}
+            {item.badge && (
+              <span className={cn(
+                'ml-1 flex size-5 items-center justify-center rounded-full text-[10px] font-bold',
+                isActive ? 'bg-white/30 text-white' : 'bg-danger text-white'
+              )}>
+                {typeof item.badge === 'number' ? (item.badge > 9 ? '9+' : item.badge) : ''}
+              </span>
+            )}
           </Link>
         )
       })}

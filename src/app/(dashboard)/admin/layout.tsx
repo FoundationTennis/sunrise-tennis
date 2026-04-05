@@ -1,7 +1,5 @@
-'use client'
-
-import { NavTabs } from '@/components/nav-tabs'
-import { MobileBottomNav } from '@/components/mobile-bottom-nav'
+import { createClient } from '@/lib/supabase/server'
+import { NavWrapper } from '@/components/nav-wrapper'
 import {
   LayoutDashboard,
   Users,
@@ -15,33 +13,42 @@ import {
   Shield,
 } from 'lucide-react'
 
-const navItems = [
-  { href: '/admin', label: 'Overview', icon: LayoutDashboard },
-  { href: '/admin/programs', label: 'Programs', icon: GraduationCap },
-  { href: '/admin/coaches', label: 'Coaches', icon: UserCog },
-  { href: '/admin/privates', label: 'Privates', icon: UserPlus },
-  { href: '/admin/families', label: 'Families', icon: Users },
-  { href: '/admin/players', label: 'Players', icon: UserCheck },
-  { href: '/admin/payments', label: 'Payments', icon: CreditCard },
-  { href: '/admin/competitions', label: 'Comps', icon: Swords },
-  { href: '/admin/notifications', label: 'Notifications', icon: Bell },
-  { href: '/admin/activity', label: 'Activity', icon: Shield },
-]
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
 
-// Mobile: first 4 visible, rest in overflow
-const mobileVisibleItems = navItems.slice(0, 4)
-const mobileOverflowItems = navItems.slice(4)
+  // Query admin badge counts in parallel
+  const [pendingVouchersResult, pendingBookingsResult] = await Promise.all([
+    // Pending voucher submissions
+    supabase
+      .from('vouchers')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'submitted'),
+    // Pending private booking requests
+    supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending'),
+  ])
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const voucherBadge = (pendingVouchersResult.count ?? 0) > 0 ? pendingVouchersResult.count! : false
+  const bookingBadge = (pendingBookingsResult.count ?? 0) > 0 ? pendingBookingsResult.count! : false
+
+  const navItems = [
+    { href: '/admin', label: 'Overview', icon: LayoutDashboard },
+    { href: '/admin/programs', label: 'Programs', icon: GraduationCap },
+    { href: '/admin/coaches', label: 'Coaches', icon: UserCog },
+    { href: '/admin/privates', label: 'Privates', icon: UserPlus, badge: bookingBadge },
+    { href: '/admin/families', label: 'Families', icon: Users },
+    { href: '/admin/players', label: 'Players', icon: UserCheck },
+    { href: '/admin/payments', label: 'Payments', icon: CreditCard, badge: voucherBadge },
+    { href: '/admin/competitions', label: 'Comps', icon: Swords },
+    { href: '/admin/notifications', label: 'Notifications', icon: Bell },
+    { href: '/admin/activity', label: 'Activity', icon: Shield },
+  ]
+
   return (
-    <div className="pb-20 md:pb-0">
-      {/* Desktop: top tabs */}
-      <div className="hidden md:block">
-        <NavTabs items={navItems} />
-      </div>
+    <NavWrapper items={navItems} mobileVisibleCount={4}>
       {children}
-      {/* Mobile: bottom nav */}
-      <MobileBottomNav items={mobileVisibleItems} overflowItems={mobileOverflowItems} />
-    </div>
+    </NavWrapper>
   )
 }

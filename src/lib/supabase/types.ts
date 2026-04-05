@@ -884,6 +884,7 @@ export type Database = {
           family_name: string
           id: string
           notes: string | null
+          notification_preferences: Json | null
           preferred_name: string | null
           primary_contact: Json | null
           referred_by: string | null
@@ -899,6 +900,7 @@ export type Database = {
           family_name: string
           id?: string
           notes?: string | null
+          notification_preferences?: Json | null
           preferred_name?: string | null
           primary_contact?: Json | null
           referred_by?: string | null
@@ -914,6 +916,7 @@ export type Database = {
           family_name?: string
           id?: string
           notes?: string | null
+          notification_preferences?: Json | null
           preferred_name?: string | null
           primary_contact?: Json | null
           referred_by?: string | null
@@ -2315,6 +2318,10 @@ export type Database = {
       allocate_payment_to_charges: {
         Args: { target_payment_id: string }
         Returns: undefined
+      }
+      claim_invitation: {
+        Args: { p_token: string }
+        Returns: Json
       }
       create_booking_notification: {
         Args: {

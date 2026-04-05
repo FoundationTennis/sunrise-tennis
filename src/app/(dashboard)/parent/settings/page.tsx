@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { ContactInfoForm } from './contact-info-form'
 import { MediaConsentForm } from './media-consent-form'
+import { NotificationPrefsForm } from './notification-prefs-form'
 import { PageHeader } from '@/components/page-header'
 import { Card, CardContent } from '@/components/ui/card'
 import { AlertCircle, CheckCircle } from 'lucide-react'
@@ -60,6 +61,11 @@ export default async function ParentSettingsPage({
         <ContactInfoForm
           primaryContact={primaryContact}
           secondaryContact={secondaryContact}
+        />
+
+        {/* Notification Preferences */}
+        <NotificationPrefsForm
+          currentPref={(family.notification_preferences as Record<string, string> | null)?.session_reminders ?? 'first_week_and_privates'}
         />
 
         {/* Media Consent */}

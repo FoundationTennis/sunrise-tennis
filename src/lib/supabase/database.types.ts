@@ -884,6 +884,7 @@ export type Database = {
           family_name: string
           id: string
           notes: string | null
+          notification_preferences: Json | null
           preferred_name: string | null
           primary_contact: Json | null
           referred_by: string | null
@@ -899,6 +900,7 @@ export type Database = {
           family_name: string
           id?: string
           notes?: string | null
+          notification_preferences?: Json | null
           preferred_name?: string | null
           primary_contact?: Json | null
           referred_by?: string | null
@@ -914,6 +916,7 @@ export type Database = {
           family_name?: string
           id?: string
           notes?: string | null
+          notification_preferences?: Json | null
           preferred_name?: string | null
           primary_contact?: Json | null
           referred_by?: string | null
@@ -2316,6 +2319,7 @@ export type Database = {
         Args: { target_payment_id: string }
         Returns: undefined
       }
+      claim_invitation: { Args: { p_token: string }; Returns: Json }
       create_booking_notification: {
         Args: {
           p_body: string
@@ -2355,6 +2359,7 @@ export type Database = {
         Args: { p_family_id: string }
         Returns: string[]
       }
+      get_family_player_ids: { Args: { user_uuid: string }; Returns: string[] }
       get_parent_team_ids: { Args: { user_uuid: string }; Returns: string[] }
       get_player_medical_notes: {
         Args: { p_player_id: string }
