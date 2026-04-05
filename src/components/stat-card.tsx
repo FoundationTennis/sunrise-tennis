@@ -12,18 +12,20 @@ interface StatCardProps {
 
 export function StatCard({ label, value, href, icon: Icon, variant = 'default' }: StatCardProps) {
   const content = (
-    <div className="rounded-lg border border-border bg-card p-5 shadow-card transition-colors">
+    <div className="rounded-xl border border-[#F0B8B0]/60 bg-[#FFFBF7] p-5 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01]">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium text-slate-blue">{label}</p>
         {Icon && (
-          <Icon className="size-5 text-muted-foreground" />
+          <div className="flex size-9 items-center justify-center rounded-lg bg-[#FDD5D0]/60">
+            <Icon className="size-4 text-[#2B5EA7]" />
+          </div>
         )}
       </div>
       <p className={cn(
-        'mt-1 text-3xl font-bold',
+        'mt-2 text-3xl font-bold tracking-tight',
         variant === 'danger' && 'text-danger',
         variant === 'success' && 'text-success',
-        variant === 'default' && 'text-foreground',
+        variant === 'default' && 'text-deep-navy',
       )}>
         {value}
       </p>
@@ -32,7 +34,7 @@ export function StatCard({ label, value, href, icon: Icon, variant = 'default' }
 
   if (href) {
     return (
-      <Link href={href} className="block rounded-lg transition-shadow hover:shadow-elevated hover:ring-2 hover:ring-primary/20">
+      <Link href={href} className="block rounded-xl">
         {content}
       </Link>
     )

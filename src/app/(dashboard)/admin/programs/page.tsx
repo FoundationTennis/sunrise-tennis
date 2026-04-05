@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import { PageHeader } from '@/components/page-header'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
 import { GraduationCap, Plus } from 'lucide-react'
@@ -117,41 +116,48 @@ export default async function ProgramsPage({
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Programs"
-        action={
-          <div className="flex items-center gap-3">
-            <Suspense>
-              <TermPicker />
-            </Suspense>
-            <Button asChild>
+    <div className="space-y-6">
+      {/* ── Hero Banner ── */}
+      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#2B5EA7] via-[#6480A4] to-[#E87450] p-5 text-white shadow-elevated">
+        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
+        <div className="relative flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-white/80">Admin</p>
+            <h1 className="text-2xl font-bold">Programs</h1>
+            <p className="mt-0.5 text-sm text-white/70">{filteredPrograms.length} programs in {termLabel}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="[&_button]:bg-white/20 [&_button]:text-white [&_button]:border-white/30 [&_button:hover]:bg-white/30">
+              <Suspense>
+                <TermPicker />
+              </Suspense>
+            </div>
+            <Button asChild className="bg-white/20 text-white border-white/30 hover:bg-white/30 backdrop-blur-sm">
               <Link href="/admin/programs/new">
                 <Plus className="size-4" />
                 Add program
               </Link>
             </Button>
           </div>
-        }
-      />
+        </div>
+      </div>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
+        <div className="rounded-lg border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
           {error}
         </div>
       )}
       {success && (
-        <div className="mt-4 rounded-lg border border-success/20 bg-success-light px-4 py-3 text-sm text-success">
+        <div className="rounded-lg border border-success/20 bg-success-light px-4 py-3 text-sm text-success">
           {success}
         </div>
       )}
 
-      {filteredPrograms.length > 0 ? (
-        <div className="mt-6">
+      {/* ── Program List ── */}
+      <section className="animate-fade-up" style={{ animationDelay: '80ms' }}>
+        {filteredPrograms.length > 0 ? (
           <ProgramViews programs={filteredPrograms as never} sessionTallies={sessionTallies} />
-        </div>
-      ) : (
-        <div className="mt-6">
+        ) : (
           <EmptyState
             icon={GraduationCap}
             title="No programs yet"
@@ -162,11 +168,11 @@ export default async function ProgramsPage({
               </Button>
             }
           />
-        </div>
-      )}
+        )}
+      </section>
 
-      {/* Session management tools */}
-      <div className="mt-8 space-y-4">
+      {/* ── Session Management Tools ── */}
+      <section className="animate-fade-up space-y-4" style={{ animationDelay: '160ms' }}>
         <GenerateTermSessionsForm />
         <Suspense>
           <CreateSessionForm
@@ -175,7 +181,7 @@ export default async function ProgramsPage({
             venues={allVenues ?? []}
           />
         </Suspense>
-      </div>
+      </section>
     </div>
   )
 }

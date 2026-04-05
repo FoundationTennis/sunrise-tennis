@@ -11,9 +11,22 @@ interface PageHeaderProps {
   description?: string
   action?: React.ReactNode
   breadcrumbs?: Breadcrumb[]
+  /** When provided, renders a gradient hero banner instead of a plain header */
+  hero?: React.ReactNode
 }
 
-export function PageHeader({ title, description, action, breadcrumbs }: PageHeaderProps) {
+export function PageHeader({ title, description, action, breadcrumbs, hero }: PageHeaderProps) {
+  if (hero) {
+    return (
+      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#2B5EA7] via-[#6480A4] to-[#E87450] p-5 text-white shadow-elevated">
+        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
+        <div className="relative">
+          {hero}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       {breadcrumbs && breadcrumbs.length > 0 && (

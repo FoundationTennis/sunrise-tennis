@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { PageHeader } from '@/components/page-header'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
 import { Users, Plus } from 'lucide-react'
@@ -33,23 +32,30 @@ export default async function FamiliesPage() {
   })
 
   return (
-    <div>
-      <PageHeader
-        title="Families"
-        action={
-          <Button asChild>
+    <div className="space-y-6">
+      {/* ── Hero Banner ── */}
+      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#2B5EA7] via-[#6480A4] to-[#E87450] p-5 text-white shadow-elevated">
+        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-white/80">Admin</p>
+            <h1 className="text-2xl font-bold">Families</h1>
+            <p className="mt-0.5 text-sm text-white/70">{rows.length} {rows.length === 1 ? 'family' : 'families'} registered</p>
+          </div>
+          <Button asChild className="bg-white/20 text-white border-white/30 hover:bg-white/30 backdrop-blur-sm">
             <Link href="/admin/families/new">
               <Plus className="size-4" />
               Add family
             </Link>
           </Button>
-        }
-      />
+        </div>
+      </div>
 
-      {rows.length > 0 ? (
-        <FamiliesTable families={rows} />
-      ) : (
-        <div className="mt-6">
+      {/* ── Families Table ── */}
+      <section className="animate-fade-up" style={{ animationDelay: '80ms' }}>
+        {rows.length > 0 ? (
+          <FamiliesTable families={rows} />
+        ) : (
           <EmptyState
             icon={Users}
             title="No families yet"
@@ -60,8 +66,8 @@ export default async function FamiliesPage() {
               </Button>
             }
           />
-        </div>
-      )}
+        )}
+      </section>
     </div>
   )
 }

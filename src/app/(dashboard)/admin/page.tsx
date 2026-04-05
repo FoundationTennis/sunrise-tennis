@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { formatCurrency } from '@/lib/utils/currency'
 import { calculateGroupCoachPay } from '@/lib/utils/billing'
 import { getCurrentTermRange, getCurrentOrNextTermEnd } from '@/lib/utils/school-terms'
-import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -14,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Users, UserCheck, GraduationCap, DollarSign } from 'lucide-react'
+import { Users, UserCheck, GraduationCap, DollarSign, ChevronRight } from 'lucide-react'
 import { OverviewCalendar } from './overview-calendar'
 
 export default async function AdminDashboard() {
@@ -182,10 +181,30 @@ export default async function AdminDashboard() {
   }))
 
   return (
-    <div>
-      <PageHeader title="Overview" description="Business snapshot at a glance." />
+    <div className="space-y-6">
+      {/* ── Hero Banner ── */}
+      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#2B5EA7] via-[#6480A4] to-[#E87450] p-5 text-white shadow-elevated">
+        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-white/80">Admin</p>
+            <h1 className="text-2xl font-bold">Overview</h1>
+            <p className="mt-0.5 text-sm text-white/70">Business snapshot at a glance</p>
+          </div>
+          <Link href="/admin/payments" className="text-right group">
+            <p className="text-xs font-medium text-white/70">Outstanding</p>
+            <p className={`text-2xl font-bold tabular-nums ${totalOutstanding < 0 ? 'text-red-200' : 'text-white'}`}>
+              {totalOutstanding !== 0 ? formatCurrency(totalOutstanding) : '$0.00'}
+            </p>
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm transition-colors group-hover:bg-white/30">
+              View payments <ChevronRight className="size-3" />
+            </span>
+          </Link>
+        </div>
+      </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ── Stat Cards ── */}
+      <div className="animate-fade-up grid gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ animationDelay: '80ms' }}>
         <StatCard label="Families" value={String(familyCount ?? 0)} href="/admin/families" icon={Users} />
         <StatCard label="Players" value={String(playerCount ?? 0)} href="/admin/players" icon={UserCheck} />
         <StatCard label="Programs" value={String(programCount ?? 0)} href="/admin/programs" icon={GraduationCap} />
@@ -198,22 +217,22 @@ export default async function AdminDashboard() {
         />
       </div>
 
-      {/* Schedule Calendar */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground">This Week</h2>
+      {/* ── Schedule Calendar ── */}
+      <section className="animate-fade-up" style={{ animationDelay: '160ms' }}>
+        <h2 className="text-lg font-semibold text-deep-navy">This Week</h2>
         <div className="mt-3">
           <OverviewCalendar sessions={serializedSessions} programs={serializedPrograms} />
         </div>
-      </div>
+      </section>
 
-      {/* Coach Pay Summary */}
+      {/* ── Coach Pay Summary ── */}
       {coachPayRows.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-foreground">Coach Pay This Term</h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card shadow-card">
+        <section className="animate-fade-up" style={{ animationDelay: '240ms' }}>
+          <h2 className="text-lg font-semibold text-deep-navy">Coach Pay This Term</h2>
+          <div className="mt-3 overflow-hidden rounded-xl border border-[#F0B8B0]/60 bg-[#FFFBF7] shadow-card">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableRow className="bg-[#FFF6ED] hover:bg-[#FFF6ED]">
                   <TableHead>Coach</TableHead>
                   <TableHead className="text-right">Group Pay</TableHead>
                   <TableHead className="text-right">Private Pay</TableHead>
@@ -222,26 +241,27 @@ export default async function AdminDashboard() {
               </TableHeader>
               <TableBody>
                 {coachPayRows.map((row) => (
-                  <TableRow key={row.name}>
-                    <TableCell className="font-medium">{row.name}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(row.groupPay)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(row.privatePay)}</TableCell>
-                    <TableCell className="text-right tabular-nums font-bold">{formatCurrency(row.groupPay + row.privatePay)}</TableCell>
+                  <TableRow key={row.name} className="hover:bg-[#FFFBF7]">
+                    <TableCell className="font-medium text-deep-navy">{row.name}</TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-blue">{formatCurrency(row.groupPay)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-blue">{formatCurrency(row.privatePay)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-bold text-deep-navy">{formatCurrency(row.groupPay + row.privatePay)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-        </div>
+        </section>
       )}
 
+      {/* ── Account Balances ── */}
       {balances && balances.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-foreground">Account Balances</h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card shadow-card">
+        <section className="animate-fade-up" style={{ animationDelay: '320ms' }}>
+          <h2 className="text-lg font-semibold text-deep-navy">Account Balances</h2>
+          <div className="mt-3 overflow-hidden rounded-xl border border-[#F0B8B0]/60 bg-[#FFFBF7] shadow-card">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableRow className="bg-[#FFF6ED] hover:bg-[#FFF6ED]">
                   <TableHead>Family</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
                 </TableRow>
@@ -250,7 +270,7 @@ export default async function AdminDashboard() {
                 {balances.map((b) => {
                   const family = b.families as unknown as { display_id: string; family_name: string } | null
                   return (
-                    <TableRow key={b.family_id}>
+                    <TableRow key={b.family_id} className="hover:bg-[#FFFBF7]">
                       <TableCell>
                         <Link href={`/admin/families/${b.family_id}`} className="font-medium hover:text-primary transition-colors">
                           {family?.display_id} ({family?.family_name})
@@ -265,7 +285,7 @@ export default async function AdminDashboard() {
               </TableBody>
             </Table>
           </div>
-        </div>
+        </section>
       )}
     </div>
   )

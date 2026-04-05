@@ -4,10 +4,9 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { calculateGroupCoachPay } from '@/lib/utils/billing'
 import { getCurrentTermRange } from '@/lib/utils/school-terms'
 import { formatTime } from '@/lib/utils/dates'
-import { PageHeader } from '@/components/page-header'
 import { Card, CardContent } from '@/components/ui/card'
 import { RecordPaymentForm } from '../../admin/privates/earnings/record-payment-form'
-import { Clock, Users, DollarSign, GraduationCap } from 'lucide-react'
+import { Clock, Users, DollarSign, GraduationCap, ChevronRight } from 'lucide-react'
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -115,15 +114,23 @@ export default async function CoachesPage({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Coaches"
-        description="Coach availability, programs, and pay"
-        action={
-          <Link href="/admin/coaches/availability" className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-muted">
-            Manage Availability
+      {/* ── Hero Banner ── */}
+      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#2B5EA7] via-[#6480A4] to-[#E87450] p-5 text-white shadow-elevated">
+        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-white/80">Admin</p>
+            <h1 className="text-2xl font-bold">Coaches</h1>
+            <p className="mt-0.5 text-sm text-white/70">{coachCards.length} active {coachCards.length === 1 ? 'coach' : 'coaches'}</p>
+          </div>
+          <Link
+            href="/admin/coaches/availability"
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+          >
+            Manage Availability <ChevronRight className="size-3.5" />
           </Link>
-        }
-      />
+        </div>
+      </div>
 
       {error && (
         <div className="rounded-lg border border-danger/20 bg-danger-light px-4 py-3 text-sm text-danger">
@@ -136,109 +143,114 @@ export default async function CoachesPage({
         </div>
       )}
 
-      {/* Coach cards */}
+      {/* ── Coach Cards ── */}
       <div className="grid gap-4 sm:grid-cols-2">
-        {coachCards.map(coach => (
-          <Link key={coach.id} href={`/admin/coaches/${coach.id}`} className="block">
-          <Card className="overflow-hidden transition-all hover:shadow-elevated hover:scale-[1.01]">
-            <CardContent className="p-0">
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
-                <div>
-                  <p className="font-semibold text-foreground">{coach.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {coach.pay_period === 'end_of_term' ? 'Term pay' : coach.pay_period === 'fortnightly' ? 'Fortnightly' : 'Weekly'}
-                  </p>
+        {coachCards.map((coach, i) => (
+          <Link
+            key={coach.id}
+            href={`/admin/coaches/${coach.id}`}
+            className="animate-fade-up block"
+            style={{ animationDelay: `${(i + 1) * 80}ms` }}
+          >
+            <Card className="overflow-hidden border-[#F0B8B0]/60 bg-[#FFFBF7] transition-all hover:shadow-elevated hover:scale-[1.01]">
+              <CardContent className="p-0">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-[#F0B8B0]/40 bg-[#FFF6ED] px-4 py-3">
+                  <div>
+                    <p className="font-semibold text-deep-navy">{coach.name}</p>
+                    <p className="text-xs text-slate-blue">
+                      {coach.pay_period === 'end_of_term' ? 'Term pay' : coach.pay_period === 'fortnightly' ? 'Fortnightly' : 'Weekly'}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs text-slate-blue">
+                    {coach.groupRate > 0 && <p>Group: {formatCurrency(coach.groupRate)}/hr</p>}
+                    {coach.privateRate > 0 && <p>Private: {formatCurrency(coach.privateRate)}/hr</p>}
+                  </div>
                 </div>
-                <div className="text-right text-xs text-muted-foreground">
-                  {coach.groupRate > 0 && <p>Group: {formatCurrency(coach.groupRate)}/hr</p>}
-                  {coach.privateRate > 0 && <p>Private: {formatCurrency(coach.privateRate)}/hr</p>}
-                </div>
-              </div>
 
-              <div className="space-y-3 p-4">
-                {/* Availability */}
-                {coach.windows.length > 0 && (
+                <div className="space-y-3 p-4">
+                  {/* Availability */}
+                  {coach.windows.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <Clock className="mt-0.5 size-3.5 shrink-0 text-[#2B5EA7]" />
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-blue">
+                        {coach.windows.map((w, idx) => (
+                          <span key={idx}>{DAY_NAMES[w.day_of_week]} {formatTime(w.start_time)}-{formatTime(w.end_time)}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Programs */}
+                  {coach.programs.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <GraduationCap className="mt-0.5 size-3.5 shrink-0 text-[#2B5EA7]" />
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-blue">
+                        {coach.programs.map((p, idx) => (
+                          <span key={idx}>
+                            {p.name}
+                            {p.role !== 'primary' && <span className="ml-0.5 text-[10px] opacity-60">(A)</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stats */}
                   <div className="flex items-start gap-2">
-                    <Clock className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                      {coach.windows.map((w, i) => (
-                        <span key={i}>{DAY_NAMES[w.day_of_week]} {formatTime(w.start_time)}-{formatTime(w.end_time)}</span>
-                      ))}
+                    <Users className="mt-0.5 size-3.5 shrink-0 text-[#2B5EA7]" />
+                    <span className="text-xs text-slate-blue">
+                      {coach.completedCount} completed · {coach.upcomingCount} upcoming
+                    </span>
+                  </div>
+
+                  {/* Pay */}
+                  <div className="flex items-start gap-2">
+                    <DollarSign className="mt-0.5 size-3.5 shrink-0 text-[#2B5EA7]" />
+                    <div className="flex flex-wrap gap-x-3 text-xs">
+                      {coach.groupPay > 0 && <span className="text-slate-blue">Group: {formatCurrency(coach.groupPay)}</span>}
+                      {coach.owed > 0 && <span className="text-orange-600">Owed: {formatCurrency(coach.owed)}</span>}
+                      {coach.paid > 0 && <span className="text-success">Paid: {formatCurrency(coach.paid)}</span>}
                     </div>
                   </div>
-                )}
-
-                {/* Programs */}
-                {coach.programs.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <GraduationCap className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                      {coach.programs.map((p, i) => (
-                        <span key={i}>
-                          {p.name}
-                          {p.role !== 'primary' && <span className="ml-0.5 text-[10px] opacity-60">(A)</span>}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Stats */}
-                <div className="flex items-start gap-2">
-                  <Users className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">
-                    {coach.completedCount} completed · {coach.upcomingCount} upcoming
-                  </span>
                 </div>
-
-                {/* Pay */}
-                <div className="flex items-start gap-2">
-                  <DollarSign className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                  <div className="flex flex-wrap gap-x-3 text-xs">
-                    {coach.groupPay > 0 && <span className="text-muted-foreground">Group: {formatCurrency(coach.groupPay)}</span>}
-                    {coach.owed > 0 && <span className="text-orange-600">Owed: {formatCurrency(coach.owed)}</span>}
-                    {coach.paid > 0 && <span className="text-success">Paid: {formatCurrency(coach.paid)}</span>}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
           </Link>
         ))}
       </div>
 
-      {/* Record payment form */}
-      <RecordPaymentForm coaches={coachCards.map(c => ({ id: c.id, name: c.name, owed: c.owed }))} />
+      {/* ── Record Payment Form ── */}
+      <section className="animate-fade-up" style={{ animationDelay: '160ms' }}>
+        <RecordPaymentForm coaches={coachCards.map(c => ({ id: c.id, name: c.name, owed: c.owed }))} />
+      </section>
 
-      {/* Recent payments */}
+      {/* ── Recent Payments ── */}
       {(payments ?? []).length > 0 && (
-        <div>
-          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Recent Payments</h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="divide-y divide-border">
-                {(payments ?? []).map(p => {
-                  const coach = coaches?.find(c => c.id === p.coach_id)
-                  return (
-                    <div key={p.id} className="flex items-center justify-between px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium">{coach?.name ?? 'Unknown'}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatCurrency(p.amount_cents)} · {p.pay_period_key}
-                          {p.notes && ` · ${p.notes}`}
-                        </p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-AU') : ''}
+        <section className="animate-fade-up" style={{ animationDelay: '240ms' }}>
+          <h2 className="mb-3 text-sm font-semibold text-slate-blue">Recent Payments</h2>
+          <div className="overflow-hidden rounded-xl border border-[#F0B8B0]/60 bg-[#FFFBF7] shadow-card">
+            <div className="divide-y divide-[#F0B8B0]/40">
+              {(payments ?? []).map(p => {
+                const coach = coaches?.find(c => c.id === p.coach_id)
+                return (
+                  <div key={p.id} className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-deep-navy">{coach?.name ?? 'Unknown'}</p>
+                      <p className="text-xs text-slate-blue">
+                        {formatCurrency(p.amount_cents)} · {p.pay_period_key}
+                        {p.notes && ` · ${p.notes}`}
                       </p>
                     </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                    <p className="text-xs text-slate-blue">
+                      {p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-AU') : ''}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
       )}
     </div>
   )
