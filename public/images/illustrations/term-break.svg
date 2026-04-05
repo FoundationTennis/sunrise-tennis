@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160" fill="none">
+  <!-- Large sun -->
+  <circle cx="100" cy="55" r="30" fill="#F7CD5D" opacity="0.25"/>
+  <circle cx="100" cy="55" r="20" fill="#F5B041" opacity="0.4"/>
+  <circle cx="100" cy="55" r="12" fill="#F7CD5D" opacity="0.7"/>
+  <!-- Rays -->
+  <line x1="100" y1="18" x2="100" y2="25" stroke="#F7CD5D" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+  <line x1="100" y1="85" x2="100" y2="92" stroke="#F7CD5D" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+  <line x1="63" y1="55" x2="70" y2="55" stroke="#F7CD5D" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+  <line x1="130" y1="55" x2="137" y2="55" stroke="#F7CD5D" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+  <line x1="76" y1="31" x2="81" y2="36" stroke="#F7CD5D" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <line x1="119" y1="74" x2="124" y2="79" stroke="#F7CD5D" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <line x1="124" y1="31" x2="119" y2="36" stroke="#F7CD5D" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <line x1="81" y1="74" x2="76" y2="79" stroke="#F7CD5D" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <!-- Tennis ball resting -->
+  <circle cx="75" cy="120" r="10" fill="#C8D948" stroke="#9AAF2E" stroke-width="1.5"/>
+  <path d="M69 113 Q75 120 69 127" stroke="#9AAF2E" stroke-width="1" fill="none"/>
+  <path d="M81 113 Q75 120 81 127" stroke="#9AAF2E" stroke-width="1" fill="none"/>
+  <!-- Racquet leaning -->
+  <ellipse cx="130" cy="105" rx="10" ry="13" transform="rotate(-15 130 105)" stroke="#2B5EA7" stroke-width="2" fill="none" opacity="0.4"/>
+  <line x1="137" y1="115" x2="145" y2="135" stroke="#2B5EA7" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+  <!-- Ground line -->
+  <line x1="55" y1="138" x2="160" y2="138" stroke="#E0D0BE" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Cloud -->
+  <ellipse cx="45" cy="35" rx="15" ry="8" fill="#6480A4" opacity="0.1"/>
+  <ellipse cx="160" cy="28" rx="12" ry="6" fill="#6480A4" opacity="0.08"/>
+</svg>

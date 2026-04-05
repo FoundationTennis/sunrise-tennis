@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160" fill="none">
+  <!-- Court surface -->
+  <rect x="30" y="80" width="140" height="60" rx="8" fill="#F5EDE4"/>
+  <line x1="100" y1="80" x2="100" y2="140" stroke="#E0D0BE" stroke-width="2"/>
+  <line x1="30" y1="110" x2="170" y2="110" stroke="#E0D0BE" stroke-width="2"/>
+  <!-- Net -->
+  <rect x="95" y="65" width="10" height="20" rx="2" fill="#6480A4" opacity="0.3"/>
+  <line x1="95" y1="75" x2="105" y2="75" stroke="#2B5EA7" stroke-width="2"/>
+  <!-- Sun -->
+  <circle cx="155" cy="35" r="18" fill="#F7CD5D" opacity="0.8"/>
+  <circle cx="155" cy="35" r="12" fill="#F5B041"/>
+  <!-- Rays -->
+  <line x1="155" y1="10" x2="155" y2="18" stroke="#F7CD5D" stroke-width="2" stroke-linecap="round"/>
+  <line x1="175" y1="35" x2="180" y2="35" stroke="#F7CD5D" stroke-width="2" stroke-linecap="round"/>
+  <line x1="170" y1="20" x2="175" y2="15" stroke="#F7CD5D" stroke-width="2" stroke-linecap="round"/>
+  <line x1="170" y1="50" x2="175" y2="55" stroke="#F7CD5D" stroke-width="2" stroke-linecap="round"/>
+  <!-- Tennis ball -->
+  <circle cx="70" cy="95" r="8" fill="#C8D948" stroke="#9AAF2E" stroke-width="1.5"/>
+  <path d="M65 89 Q70 95 65 101" stroke="#9AAF2E" stroke-width="1" fill="none"/>
+  <path d="M75 89 Q70 95 75 101" stroke="#9AAF2E" stroke-width="1" fill="none"/>
+  <!-- Racquet -->
+  <ellipse cx="125" cy="90" rx="12" ry="16" stroke="#2B5EA7" stroke-width="2" fill="none"/>
+  <line x1="125" y1="106" x2="125" y2="125" stroke="#2B5EA7" stroke-width="3" stroke-linecap="round"/>
+  <!-- Grid on racquet -->
+  <line x1="119" y1="85" x2="131" y2="85" stroke="#2B5EA7" stroke-width="0.5" opacity="0.4"/>
+  <line x1="119" y1="90" x2="131" y2="90" stroke="#2B5EA7" stroke-width="0.5" opacity="0.4"/>
+  <line x1="119" y1="95" x2="131" y2="95" stroke="#2B5EA7" stroke-width="0.5" opacity="0.4"/>
+  <line x1="122" y1="78" x2="122" y2="102" stroke="#2B5EA7" stroke-width="0.5" opacity="0.4"/>
+  <line x1="128" y1="78" x2="128" y2="102" stroke="#2B5EA7" stroke-width="0.5" opacity="0.4"/>
+</svg>

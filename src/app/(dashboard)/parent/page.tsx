@@ -5,10 +5,11 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { formatTime } from '@/lib/utils/dates'
 import { getTermForDate, getNextTermStart } from '@/lib/utils/school-terms'
 import { EmptyState } from '@/components/empty-state'
+import { ImageHero } from '@/components/image-hero'
 import { Users, GraduationCap, ChevronRight, CalendarDays, MapPin, UserPlus, CreditCard, Ticket, Calendar } from 'lucide-react'
 import { EnrolledCalendar } from './enrolled-calendar'
 
-// Player card style — light pink matching nav bar
+// Player card style — warm sunset accent
 const PLAYER_CARD_STYLE = 'bg-[#FDD5D0] border border-[#F0B8B0] text-deep-navy'
 
 export default async function ParentDashboard() {
@@ -168,9 +169,8 @@ export default async function ParentDashboard() {
   return (
     <div className="space-y-6">
       {/* ── Hero Banner ── */}
-      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#2B5EA7] via-[#6480A4] to-[#E87450] p-5 text-white shadow-elevated">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
-        <div className="relative flex items-center justify-between">
+      <ImageHero src="/images/tennis/hero-sunset.jpg" alt="Tennis court at golden hour">
+        <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-white/80">Welcome back</p>
             <h1 className="text-2xl font-bold">{firstName}</h1>
@@ -200,27 +200,29 @@ export default async function ParentDashboard() {
             </span>
           </Link>
         </div>
-      </div>
+      </ImageHero>
 
       {/* ── Quick Actions ── */}
       <div className="animate-fade-up flex gap-2 overflow-x-auto pb-1" style={{ animationDelay: '60ms' }}>
-        <Link href="/parent/bookings" className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#F0B8B0]/60 bg-[#FFFBF7] px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-colors hover:bg-[#FFF6ED]">
+        <Link href="/parent/bookings" className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-all hover:shadow-elevated press-scale">
           <UserPlus className="size-3.5 text-primary" />
           Book Private
         </Link>
-        <Link href="/parent/payments" className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#F0B8B0]/60 bg-[#FFFBF7] px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-colors hover:bg-[#FFF6ED]">
+        <Link href="/parent/payments" className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-all hover:shadow-elevated press-scale">
           <CreditCard className="size-3.5 text-primary" />
           Make Payment
         </Link>
-        <Link href="/parent/payments#voucher" className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#F0B8B0]/60 bg-[#FFFBF7] px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-colors hover:bg-[#FFF6ED]">
+        <Link href="/parent/payments#voucher" className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-all hover:shadow-elevated press-scale">
           <Ticket className="size-3.5 text-primary" />
           Submit Voucher
         </Link>
-        <Link href="/parent/programs" className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#F0B8B0]/60 bg-[#FFFBF7] px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-colors hover:bg-[#FFF6ED]">
+        <Link href="/parent/programs" className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-xs font-medium text-deep-navy shadow-card transition-all hover:shadow-elevated press-scale">
           <GraduationCap className="size-3.5 text-primary" />
           Browse Programs
         </Link>
       </div>
+
+      <div className="section-divider" />
 
       {/* ── Two-column: Players + Upcoming Events ── */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -236,7 +238,7 @@ export default async function ParentDashboard() {
                   <Link
                     key={player.id}
                     href={`/parent/players/${player.id}`}
-                    className={`group relative block overflow-hidden rounded-xl p-4 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01] hover:bg-[#FAC8C0] ${PLAYER_CARD_STYLE}`}
+                    className={`group relative block overflow-hidden rounded-xl p-4 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01] hover:bg-[#FAC8C0] press-scale ${PLAYER_CARD_STYLE}`}
                     style={{ animationDelay: `${(i + 1) * 80}ms` }}
                   >
                     <div className="flex items-center justify-between">
@@ -253,7 +255,7 @@ export default async function ParentDashboard() {
               <EmptyState
                 icon={Users}
                 title="No players yet"
-                description="No players linked to your account yet."
+                description="Your players will appear here once your coach adds them."
                 compact
               />
             </div>
@@ -301,13 +303,15 @@ export default async function ParentDashboard() {
               <EmptyState
                 icon={CalendarDays}
                 title="No upcoming events"
-                description="Check back later for club events."
+                description="We'll post socials and tournaments here!"
                 compact
               />
             </div>
           )}
         </section>
       </div>
+
+      <div className="section-divider" />
 
       {/* ── Weekly Schedule ── */}
       <section className="animate-fade-up" style={{ animationDelay: '160ms' }}>
@@ -365,9 +369,14 @@ export default async function ParentDashboard() {
           <div className="mt-3">
             <EmptyState
               icon={GraduationCap}
-              title="No enrolments"
-              description="No program enrolments yet."
+              title="No sessions scheduled"
+              description="Browse programs to get started!"
               compact
+              action={
+                <Link href="/parent/programs" className="text-xs font-medium text-primary hover:text-primary/80">
+                  Browse
+                </Link>
+              }
             />
           </div>
         )}

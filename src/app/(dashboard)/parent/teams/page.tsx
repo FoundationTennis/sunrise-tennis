@@ -137,7 +137,7 @@ export default async function ParentTeamsPage() {
             <Link
               key={team.id}
               href={`/parent/teams/${team.id}`}
-              className="animate-fade-up group block overflow-hidden rounded-xl border border-border bg-card p-4 shadow-card transition-all hover:shadow-elevated hover:border-primary/30"
+              className="animate-fade-up group block overflow-hidden rounded-xl border border-border bg-card p-4 shadow-card transition-all hover:shadow-elevated hover:border-primary/30 press-scale"
               style={{ animationDelay: `${i * 60}ms` }}
             >
               <div className="flex items-start justify-between gap-3">
@@ -198,6 +198,7 @@ export default async function ParentTeamsPage() {
         <div className="mt-6">
           <EmptyState
             icon={Trophy}
+            illustration="/images/illustrations/trophy.svg"
             title="No teams yet"
             description="Your children aren't on any competition teams yet. Ask your coach about joining a team!"
           />

@@ -1,45 +1,34 @@
-import { Skeleton } from '@/components/ui/skeleton'
-
 export default function ParentLoading() {
   return (
-    <div>
-      {/* Header + balance */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="mt-2 h-4 w-32" />
+    <div className="space-y-6">
+      {/* Hero skeleton */}
+      <div className="h-[140px] rounded-2xl skeleton-shimmer" />
+
+      {/* Quick actions */}
+      <div className="flex gap-2">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="h-9 w-28 shrink-0 rounded-full skeleton-shimmer" />
+        ))}
+      </div>
+
+      {/* Two column: Players + Events */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-3">
+          <div className="h-6 w-28 rounded skeleton-shimmer" />
+          <div className="h-16 rounded-xl skeleton-shimmer" />
+          <div className="h-16 rounded-xl skeleton-shimmer" />
+          <div className="h-16 rounded-xl skeleton-shimmer" />
         </div>
-        <div className="rounded-lg border border-border bg-card px-4 py-3 text-center">
-          <Skeleton className="mx-auto h-3 w-24" />
-          <Skeleton className="mx-auto mt-2 h-8 w-16" />
+        <div className="space-y-3">
+          <div className="h-6 w-36 rounded skeleton-shimmer" />
+          <div className="h-16 rounded-xl skeleton-shimmer" />
         </div>
       </div>
 
-      {/* Players */}
-      <div className="mt-8">
-        <Skeleton className="h-6 w-28" />
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="rounded-lg border border-border bg-card p-4">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="mt-2 h-4 w-24" />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Sessions */}
-      <div className="mt-8">
-        <Skeleton className="h-6 w-40" />
-        <div className="mt-3 rounded-lg border border-border bg-card p-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-8 py-3">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-28" />
-            </div>
-          ))}
-        </div>
+      {/* Calendar skeleton */}
+      <div className="space-y-3">
+        <div className="h-6 w-32 rounded skeleton-shimmer" />
+        <div className="h-48 rounded-xl skeleton-shimmer" />
       </div>
     </div>
   )

@@ -5,6 +5,7 @@ import { formatDate, formatTime } from '@/lib/utils/dates'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/empty-state'
+import { ImageHero } from '@/components/image-hero'
 import {
   ChevronLeft,
   Video,
@@ -120,19 +121,17 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
   return (
     <div className="max-w-3xl space-y-5">
       {/* ── Hero Header ── */}
-      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#2B5EA7] via-[#6480A4] to-[#E87450] p-5 text-white shadow-elevated">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
-
+      <ImageHero src="/images/tennis/profile-bg.jpg" alt="Tennis player">
         {/* Back button */}
         <Link
           href="/parent"
-          className="relative mb-3 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm transition-colors hover:bg-white/25"
+          className="mb-3 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm transition-colors hover:bg-white/25"
         >
           <ChevronLeft className="size-3" />
           Overview
         </Link>
 
-        <div className="relative flex items-center gap-4">
+        <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold truncate">{player.first_name} {player.last_name}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-white/80">
@@ -153,15 +152,17 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
           </div>
           <StatusBadge status={player.status ?? 'active'} className="bg-white/15 border-white/20 text-white" />
         </div>
-      </div>
+      </ImageHero>
 
-      {/* ── Content Previews ── */}
+      {/* ── Content Previews — only show when there's content ── */}
+      {(latestNote || latestVideoNote) && (
       <section className="animate-fade-up" style={{ animationDelay: '80ms' }}>
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className={`grid gap-2.5 ${latestNote && latestVideoNote ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {/* Lesson Notes Preview */}
+          {latestNote && (
           <Link
             href="#lesson-notes"
-            className="group overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:shadow-elevated hover:scale-[1.02]"
+            className="group overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:shadow-elevated hover:scale-[1.02] press-scale"
           >
             <div className="flex aspect-[4/3] items-center justify-center bg-primary/5 p-2.5">
               {latestNote?.focus || latestNote?.notes ? (
@@ -177,21 +178,21 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
               )}
             </div>
           </Link>
+          )}
 
           {/* Video Analysis Preview */}
+          {latestVideoNote && (
           <Link
             href="#lesson-notes"
-            className="group overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:shadow-elevated hover:scale-[1.02]"
+            className="group overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:shadow-elevated hover:scale-[1.02] press-scale"
           >
             <div className="relative flex aspect-[4/3] items-center justify-center bg-secondary/5">
               <Video className="size-8 text-secondary/25" />
-              {latestVideoNote && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-secondary/10 to-transparent">
-                  <div className="flex size-8 items-center justify-center rounded-full bg-white/80 shadow-sm">
-                    <Video className="size-4 text-secondary" />
-                  </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-secondary/10 to-transparent">
+                <div className="flex size-8 items-center justify-center rounded-full bg-white/80 shadow-sm">
+                  <Video className="size-4 text-secondary" />
                 </div>
-              )}
+              </div>
             </div>
             <div className="px-2.5 py-2 text-center">
               <p className="text-[11px] font-semibold text-foreground">Video Analysis</p>
@@ -200,21 +201,10 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
               )}
             </div>
           </Link>
-
-          {/* Gallery Preview */}
-          <Link
-            href="#lesson-notes"
-            className="group overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:shadow-elevated hover:scale-[1.02]"
-          >
-            <div className="flex aspect-[4/3] items-center justify-center bg-accent/5">
-              <ImageIcon className="size-8 text-accent/25" />
-            </div>
-            <div className="px-2.5 py-2 text-center">
-              <p className="text-[11px] font-semibold text-foreground">Gallery</p>
-            </div>
-          </Link>
+          )}
         </div>
       </section>
+      )}
 
       {/* ── Profile Details ── */}
       <section className="animate-fade-up" style={{ animationDelay: '120ms' }}>
@@ -286,7 +276,7 @@ export default async function ParentPlayerDetailPage({ params }: { params: Promi
                 <Link
                   key={enrollment.id}
                   href={`/parent/programs/${program.id}`}
-                  className={`group relative block overflow-hidden rounded-xl border p-4 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01] hover:brightness-110 ${accent.bg} ${accent.border} ${accent.text}`}
+                  className={`group relative block overflow-hidden rounded-xl border p-4 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01] hover:brightness-110 press-scale ${accent.bg} ${accent.border} ${accent.text}`}
                 >
                   <div className="flex items-center justify-between">
                     <div>

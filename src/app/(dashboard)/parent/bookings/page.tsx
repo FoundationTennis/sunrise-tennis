@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
-import { PageHeader } from '@/components/page-header'
+import { ImageHero } from '@/components/image-hero'
 import { AvailabilityCalendar } from './availability-calendar'
 import { MyBookings } from './my-bookings'
 import { LessonHistory } from './lesson-history'
@@ -148,10 +149,13 @@ export default async function ParentBookingsPage({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Privates"
-        description="Book and manage private lessons"
-      />
+      <ImageHero src="/images/tennis/coaching-1on1.jpg" alt="Private tennis coaching">
+        <div>
+          <p className="text-sm font-medium text-white/80">Private Lessons</p>
+          <h1 className="text-2xl font-bold">Book &amp; Manage</h1>
+          <p className="mt-1 text-sm text-white/70">1-on-1 coaching with your favourite coaches</p>
+        </div>
+      </ImageHero>
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

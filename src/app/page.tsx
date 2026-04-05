@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { Sun, MapPin, Phone, Clock, ChevronRight, Instagram } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@supabase/supabase-js'
@@ -70,9 +71,18 @@ export default async function Home() {
   )
 
   return (
-    <div className="min-h-screen bg-[#FFFBF7]">
+    <div className="min-h-screen bg-[#FAF6F1]">
       {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#2B5EA7] via-[#6480A4] to-[#E87450] px-4 pb-20 pt-16 text-white">
+      <section className="relative overflow-hidden px-4 pb-20 pt-16 text-white">
+        <Image
+          src="/images/tennis/hero-kids.jpg"
+          alt="Junior tennis player on court"
+          fill
+          className="object-cover"
+          priority
+          sizes="100vw"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#2B5EA7]/85 via-[#6480A4]/75 to-[#E87450]/65" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(247,205,93,0.15),transparent_60%)]" />
         <div className="relative mx-auto max-w-3xl text-center">
           {/* Logo */}
@@ -179,21 +189,21 @@ export default async function Home() {
           </p>
 
           <div className="mt-8 grid gap-6 sm:grid-cols-3">
-            <div className="rounded-xl bg-white p-5 shadow-sm">
+            <div className="rounded-xl bg-card p-5 shadow-card transition-all hover:shadow-elevated">
               <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-[#E87450]/10">
                 <Sun className="size-5 text-[#E87450]" />
               </div>
               <h3 className="mt-3 font-semibold text-[#1A2332]">All Levels</h3>
               <p className="mt-1 text-sm text-[#556270]">Blue Ball through to Yellow Ball competitive squads</p>
             </div>
-            <div className="rounded-xl bg-white p-5 shadow-sm">
+            <div className="rounded-xl bg-card p-5 shadow-card transition-all hover:shadow-elevated">
               <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-[#2B5EA7]/10">
                 <Clock className="size-5 text-[#2B5EA7]" />
               </div>
               <h3 className="mt-3 font-semibold text-[#1A2332]">Flexible Scheduling</h3>
               <p className="mt-1 text-sm text-[#556270]">Group sessions, squads, and private lessons to fit your week</p>
             </div>
-            <div className="rounded-xl bg-white p-5 shadow-sm">
+            <div className="rounded-xl bg-card p-5 shadow-card transition-all hover:shadow-elevated">
               <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-[#2D8A4E]/10">
                 <MapPin className="size-5 text-[#2D8A4E]" />
               </div>

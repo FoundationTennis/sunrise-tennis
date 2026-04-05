@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160" fill="none">
+  <!-- Trophy body -->
+  <path d="M75 30 L75 80 Q100 105 125 80 L125 30 Z" fill="#F7CD5D" opacity="0.3"/>
+  <path d="M75 30 L75 80 Q100 105 125 80 L125 30 Z" stroke="#F5B041" stroke-width="2" fill="none"/>
+  <!-- Trophy rim -->
+  <rect x="70" y="25" width="60" height="8" rx="3" fill="#F5B041"/>
+  <!-- Handles -->
+  <path d="M75 40 Q55 40 55 55 Q55 70 75 70" stroke="#F5B041" stroke-width="2" fill="none"/>
+  <path d="M125 40 Q145 40 145 55 Q145 70 125 70" stroke="#F5B041" stroke-width="2" fill="none"/>
+  <!-- Stem -->
+  <rect x="95" y="100" width="10" height="20" rx="2" fill="#E87450" opacity="0.5"/>
+  <!-- Base -->
+  <rect x="80" y="118" width="40" height="8" rx="3" fill="#2B5EA7" opacity="0.3"/>
+  <rect x="85" y="115" width="30" height="6" rx="2" fill="#2B5EA7" opacity="0.2"/>
+  <!-- Star -->
+  <polygon points="100,45 104,55 115,55 106,62 110,73 100,66 90,73 94,62 85,55 96,55" fill="#F5B041" opacity="0.6"/>
+  <!-- Sparkles -->
+  <circle cx="55" cy="35" r="2" fill="#F7CD5D" opacity="0.6"/>
+  <circle cx="150" cy="30" r="1.5" fill="#F7CD5D" opacity="0.5"/>
+  <circle cx="45" cy="55" r="1.5" fill="#E87450" opacity="0.4"/>
+  <circle cx="158" cy="50" r="2" fill="#E87450" opacity="0.4"/>
+</svg>

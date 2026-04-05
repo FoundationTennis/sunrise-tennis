@@ -12,12 +12,12 @@ interface StatCardProps {
 
 export function StatCard({ label, value, href, icon: Icon, variant = 'default' }: StatCardProps) {
   const content = (
-    <div className="rounded-xl border border-[#F0B8B0]/60 bg-[#FFFBF7] p-5 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01]">
+    <div className="rounded-xl border border-border bg-card p-5 shadow-card transition-all hover:shadow-elevated hover:scale-[1.01] press-scale">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-slate-blue">{label}</p>
         {Icon && (
-          <div className="flex size-9 items-center justify-center rounded-lg bg-[#FDD5D0]/60">
-            <Icon className="size-4 text-[#2B5EA7]" />
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
+            <Icon className="size-4 text-primary" />
           </div>
         )}
       </div>

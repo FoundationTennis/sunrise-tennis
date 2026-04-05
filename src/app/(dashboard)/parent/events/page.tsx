@@ -107,8 +107,9 @@ export default async function ParentEventsPage() {
         <div className="mt-6">
           <EmptyState
             icon={CalendarDays}
+            illustration="/images/illustrations/calendar-sunny.svg"
             title="No upcoming events"
-            description="Check back later for club socials, tournaments, and other events."
+            description="We'll post socials, tournaments, and other events here. Check back soon!"
           />
         </div>
       )}
