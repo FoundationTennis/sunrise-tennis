@@ -93,18 +93,25 @@ export async function updateSession(request: NextRequest) {
   if (user && (pathname.startsWith('/admin') || pathname.startsWith('/coach') || pathname.startsWith('/parent'))) {
     let roles: string[] = []
 
-    // Try cached roles first (verify HMAC signature to prevent tampering)
+    // Try cached roles first (verify HMAC signature and user_id match)
     const cachedRoles = request.cookies.get('x-user-roles')?.value
     if (cachedRoles) {
       const verified = await verifySignedValue(cachedRoles)
       if (verified) {
-        roles = verified.split(',')
+        // Format: "user_id:role1,role2" — only use if same user
+        const colonIdx = verified.indexOf(':')
+        if (colonIdx !== -1) {
+          const cachedUserId = verified.substring(0, colonIdx)
+          if (cachedUserId === user.id) {
+            roles = verified.substring(colonIdx + 1).split(',')
+          }
+          // Different user → ignore stale cookie, re-query below
+        }
       }
-      // If signature invalid, fall through to re-query (tampered cookie is ignored)
     }
 
     if (roles.length === 0) {
-      // First request, cache expired, or tampered cookie — query and cache
+      // First request, cache expired, different user, or tampered cookie — query and cache
       const { data: userRoles } = await supabase
         .from('user_roles')
         .select('role')
@@ -112,8 +119,8 @@ export async function updateSession(request: NextRequest) {
 
       roles = userRoles?.map(r => r.role) ?? []
 
-      // Sign and cache for 5 minutes (roles rarely change)
-      const signedRoles = await signValue(roles.join(','))
+      // Sign with user_id prefix so cookie can't be reused across users
+      const signedRoles = await signValue(`${user.id}:${roles.join(',')}`)
       supabaseResponse.cookies.set('x-user-roles', signedRoles, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

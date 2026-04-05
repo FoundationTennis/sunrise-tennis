@@ -104,6 +104,12 @@ export async function signout() {
     await logAuthEvent({ userId: user.id, email: user.email ?? '', eventType: 'signout', success: true })
   }
   await supabase.auth.signOut()
+
+  // Clear cached roles cookie so next login doesn't inherit stale roles
+  const { cookies } = await import('next/headers')
+  const cookieStore = await cookies()
+  cookieStore.delete('x-user-roles')
+
   revalidatePath('/', 'layout')
   redirect('/login')
 }
