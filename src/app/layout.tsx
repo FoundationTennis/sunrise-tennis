@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "sonner";
@@ -24,17 +25,20 @@ export const viewport: Viewport = {
   themeColor: "#2B5EA7",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Reading x-nonce tells Next.js to apply it to all inline <script> tags
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en">
       <body
         className={`${plusJakartaSans.variable} font-sans antialiased`}
       >
-        <NextTopLoader color="#2B5EA7" height={2} showSpinner={false} />
+        <NextTopLoader color="#2B5EA7" height={2} showSpinner={false} nonce={nonce} />
         {children}
         <Toaster position="top-center" richColors closeButton duration={3000} />
         <SpeedInsights />

@@ -2,10 +2,13 @@ import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  // Generate a nonce for CSP
+  // Generate a nonce for CSP — Next.js reads x-nonce from request headers
+  // and automatically applies it to inline <script> tags
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
 
-  // Store nonce on request headers so server components can read it
+  // Set nonce on request headers BEFORE any response creation.
+  // NextRequest.headers is mutable — this propagates through
+  // NextResponse.next({ request }) in updateSession.
   request.headers.set('x-nonce', nonce)
 
   // Run auth middleware (handles session refresh, role checks, redirects)
@@ -25,7 +28,7 @@ export async function middleware(request: NextRequest) {
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: https://*.supabase.co`,
     `font-src 'self'`,
-    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://connect.squareup.com https://connect.squareupsandbox.com https://pep.squarecdn.com`,
+    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://connect.squareup.com https://connect.squareupsandbox.com https://pep.squarecdn.com https://va.vercel-scripts.com`,
     `frame-src https://www.youtube.com https://youtube-nocookie.com https://pep.squarecdn.com`,
     `object-src 'none'`,
     `base-uri 'self'`,
