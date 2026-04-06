@@ -1,8 +1,9 @@
 import Image from 'next/image'
-import { Sun, Users, Calendar, BarChart3, MapPin, Phone, ChevronRight } from 'lucide-react'
+import { Sun, Users, Calendar, BarChart3, MapPin, Phone, ChevronRight, Trophy, Star, GraduationCap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PublicHeader } from '@/components/public-header'
 import { PublicFooter } from '@/components/public-footer'
+import { StickyMobileCTA } from '@/components/sticky-mobile-cta'
 import { TrialBookingForm } from '@/components/trial-booking-form'
 import { ProgramsSection } from './programs-section'
 import { createClient } from '@supabase/supabase-js'
@@ -123,6 +124,50 @@ export default async function Home() {
 
         {/* Bottom gradient fade */}
         <div className="absolute right-0 bottom-0 left-0 h-24 bg-gradient-to-t from-[#FFFBF7] to-transparent" />
+      </section>
+
+      {/* ── Social Proof Strip ────────────────────────────────────── */}
+      <section className="relative -mt-8 z-10 px-4">
+        <div className="mx-auto max-w-4xl rounded-2xl border border-[#E0D0BE]/40 bg-white/90 px-6 py-5 shadow-lg backdrop-blur-sm">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#2B5EA7]/10">
+                <Users className="size-5 text-[#2B5EA7]" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#1A2332]">50+</p>
+                <p className="text-xs text-[#556270]">Active Students</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#E87450]/10">
+                <GraduationCap className="size-5 text-[#E87450]" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#1A2332]">5</p>
+                <p className="text-xs text-[#556270]">Ball Levels</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#F5B041]/10">
+                <Star className="size-5 text-[#D4960A]" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#1A2332]">20+</p>
+                <p className="text-xs text-[#556270]">Sessions/Week</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#2D8A4E]/10">
+                <Trophy className="size-5 text-[#2D8A4E]" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#1A2332]">Term 2</p>
+                <p className="text-xs text-[#556270]">Now Enrolling</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ── Value Propositions ─────────────────────────────────────── */}
@@ -314,6 +359,7 @@ export default async function Home() {
       </section>
 
       <PublicFooter />
+      <StickyMobileCTA />
     </div>
   )
 }
