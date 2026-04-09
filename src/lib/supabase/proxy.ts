@@ -70,7 +70,11 @@ export async function updateSession(request: NextRequest) {
 
   // Public routes that don't require auth
   const publicPaths = ['/', '/philosophy', '/contact', '/privacy', '/terms', '/login', '/signup', '/verify']
-  const isPublicPath = publicPaths.some(
+  // Webhook endpoints — must be reachable without cookies (Stripe posts
+  // from its own servers with no auth context; signature verification
+  // happens inside the handler).
+  const isWebhook = pathname === '/api/stripe-webhook'
+  const isPublicPath = isWebhook || publicPaths.some(
     (path) => pathname === path || pathname.startsWith('/api/public')
   )
   const isAuthCallback = pathname.startsWith('/auth/callback')
