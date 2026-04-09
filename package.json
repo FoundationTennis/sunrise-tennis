@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "op run --env-file=.env.op -- next dev",
+    "build": "op run --env-file=.env.op -- next build",
+    "start": "op run --env-file=.env.op -- next start",
     "lint": "eslint"
   },
   "dependencies": {
