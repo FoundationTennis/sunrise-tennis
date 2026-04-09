@@ -41,7 +41,7 @@ VALUES (
   '00000000-0000-0000-0000-000000000002',
   'Maxim',
   '0431 368 752',
-  'foundationtennis@hotmail.com',
+  'maxim@sunrisetennis.com.au',
   'active',
   true
 ) ON CONFLICT (id) DO NOTHING;
