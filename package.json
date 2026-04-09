@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "op run --env-file=.env.op -- next dev",
-    "build": "op run --env-file=.env.op -- next build",
-    "start": "op run --env-file=.env.op -- next start",
+    "build": "next build",
+    "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
