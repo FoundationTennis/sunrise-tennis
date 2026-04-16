@@ -75,28 +75,35 @@ type ViewMode = 'week' | 'day' | 'month'
 
 // ── Coach color palette ───────────────────────────────────────────────
 
+// 7 distinct hues: blue, coral, purple, amber, teal, rose, slate
 const COACH_COLORS = [
   { bg: 'bg-[#2B5EA7]/15 border-[#2B5EA7]/30 text-[#2B5EA7]', hover: 'hover:bg-[#2B5EA7]/25' },
   { bg: 'bg-[#E87450]/15 border-[#E87450]/30 text-[#E87450]', hover: 'hover:bg-[#E87450]/25' },
   { bg: 'bg-[#8B78B0]/15 border-[#8B78B0]/30 text-[#8B78B0]', hover: 'hover:bg-[#8B78B0]/25' },
-  { bg: 'bg-[#F5B041]/15 border-[#F5B041]/30 text-[#9A6E1F]', hover: 'hover:bg-[#F5B041]/25' },
-  { bg: 'bg-[#6480A4]/15 border-[#6480A4]/30 text-[#6480A4]', hover: 'hover:bg-[#6480A4]/25' },
+  { bg: 'bg-[#D4960A]/15 border-[#D4960A]/30 text-[#8B6914]', hover: 'hover:bg-[#D4960A]/25' },
+  { bg: 'bg-[#0D9488]/15 border-[#0D9488]/30 text-[#0D9488]', hover: 'hover:bg-[#0D9488]/25' },
+  { bg: 'bg-[#DB2777]/15 border-[#DB2777]/30 text-[#DB2777]', hover: 'hover:bg-[#DB2777]/25' },
+  { bg: 'bg-[#64748B]/15 border-[#64748B]/30 text-[#64748B]', hover: 'hover:bg-[#64748B]/25' },
 ]
 
 const COACH_TOGGLE_COLORS = [
-  { active: 'bg-[#2B5EA7]/15 text-[#2B5EA7] border-[#2B5EA7]/30', dot: 'bg-[#2B5EA7]' },
-  { active: 'bg-[#E87450]/15 text-[#E87450] border-[#E87450]/30', dot: 'bg-[#E87450]' },
-  { active: 'bg-[#8B78B0]/15 text-[#8B78B0] border-[#8B78B0]/30', dot: 'bg-[#8B78B0]' },
-  { active: 'bg-[#F5B041]/15 text-[#9A6E1F] border-[#F5B041]/30', dot: 'bg-[#F5B041]' },
-  { active: 'bg-[#6480A4]/15 text-[#6480A4] border-[#6480A4]/30', dot: 'bg-[#6480A4]' },
+  'bg-[#2B5EA7]/15 text-[#2B5EA7] border-[#2B5EA7]/30',
+  'bg-[#E87450]/15 text-[#E87450] border-[#E87450]/30',
+  'bg-[#8B78B0]/15 text-[#8B78B0] border-[#8B78B0]/30',
+  'bg-[#D4960A]/15 text-[#8B6914] border-[#D4960A]/30',
+  'bg-[#0D9488]/15 text-[#0D9488] border-[#0D9488]/30',
+  'bg-[#DB2777]/15 text-[#DB2777] border-[#DB2777]/30',
+  'bg-[#64748B]/15 text-[#64748B] border-[#64748B]/30',
 ]
 
 const COACH_BOOKED_COLORS = [
   'bg-[#2B5EA7]/8 border-[#2B5EA7]/20 text-[#2B5EA7]/50 opacity-60',
   'bg-[#E87450]/8 border-[#E87450]/20 text-[#E87450]/50 opacity-60',
   'bg-[#8B78B0]/8 border-[#8B78B0]/20 text-[#8B78B0]/50 opacity-60',
-  'bg-[#F5B041]/8 border-[#F5B041]/20 text-[#9A6E1F]/50 opacity-60',
-  'bg-[#6480A4]/8 border-[#6480A4]/20 text-[#6480A4]/50 opacity-60',
+  'bg-[#D4960A]/8 border-[#D4960A]/20 text-[#8B6914]/50 opacity-60',
+  'bg-[#0D9488]/8 border-[#0D9488]/20 text-[#0D9488]/50 opacity-60',
+  'bg-[#DB2777]/8 border-[#DB2777]/20 text-[#DB2777]/50 opacity-60',
+  'bg-[#64748B]/8 border-[#64748B]/20 text-[#64748B]/50 opacity-60',
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -501,15 +508,18 @@ export function AvailabilityCalendar({
 
   const activeEvents = activeTab === 'yours' ? yourEvents : coachEvents
 
-  // Earliest available coach slot date — used to auto-jump the calendar on load.
-  const earliestAvailableDate = useMemo(() => {
+  // All available dates sorted — used for jump buttons
+  const availableDates = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0]
-    const dates = coachEvents
-      .filter(e => e.selectable && e.date && e.date >= todayStr && e.id.includes('-avail-'))
-      .map(e => e.date as string)
-      .sort()
-    return dates[0] ?? null
+    const dateSet = new Set(
+      coachEvents
+        .filter(e => e.selectable && e.date && e.date >= todayStr && e.id.includes('-avail-'))
+        .map(e => e.date as string)
+    )
+    return [...dateSet].sort()
   }, [coachEvents])
+
+  const earliestAvailableDate = availableDates[0] ?? null
 
   // Scarcity: if only one coach is selected AND their visible-week slot count <4, show a badge.
   const scarcityInfo = useMemo(() => {
@@ -631,8 +641,7 @@ export function AvailabilityCalendar({
                   })
                   setBookingPopup(null)
                 }}
-                  className={cn('flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all border', isActive ? toggleColor.active : 'border-border text-muted-foreground/50 line-through')}>
-                  <span className={cn('size-2 rounded-full shrink-0', isActive ? toggleColor.dot : 'bg-muted-foreground/30')} />
+                  className={cn('rounded-full px-2.5 py-1 text-[11px] font-medium transition-all border', isActive ? toggleColor : 'border-border text-muted-foreground/50 line-through')}>
                   {coach.name}
                 </button>
               )
@@ -690,9 +699,9 @@ export function AvailabilityCalendar({
         <WeeklyCalendar
           events={activeEvents}
           onEventClick={handleEventClick}
-          nextJumpDate={activeTab === 'yours' ? nextPrivateDate ?? undefined : earliestAvailableDate ?? undefined}
+          nextJumpDate={activeTab === 'yours' ? nextPrivateDate ?? undefined : undefined}
+          nextJumpDates={activeTab === 'availabilities' ? availableDates : undefined}
           nextJumpLabel={activeTab === 'yours' ? 'Next session' : 'Next available'}
-          initialJumpDate={activeTab === 'availabilities' ? earliestAvailableDate ?? undefined : undefined}
           defaultView={viewMode}
           hideViewToggle
           hideNextTerm

@@ -471,6 +471,7 @@ export function WeeklyCalendar({
   onCancelPrivate,
   onCancelSession,
   nextJumpDate,
+  nextJumpDates,
   nextJumpLabel,
   headerLeft,
   renderPopup,
@@ -501,6 +502,8 @@ export function WeeklyCalendar({
   onCancelSession?: (sessionId: string, playerId: string) => Promise<{ error?: string }>
   /** Date string (YYYY-MM-DD) to jump to via a custom button */
   nextJumpDate?: string
+  /** Array of date strings — calendar picks the first one after the current view */
+  nextJumpDates?: string[]
   /** Label for the jump button (e.g. "Next private") */
   nextJumpLabel?: string
   /** Content to render at the left of the week navigation header */
@@ -772,9 +775,28 @@ export function WeeklyCalendar({
               </button>
             )
           })()}
-          {nextJumpDate && nextJumpLabel && (() => {
-            const jumpDate = new Date(nextJumpDate + 'T12:00:00')
+          {nextJumpLabel && (() => {
+            // If nextJumpDates provided, find the first date on a different week than current view
             const todayMonday = getMonday(new Date())
+            let targetDate: string | null = null
+
+            if (nextJumpDates && nextJumpDates.length > 0) {
+              const currentViewMonday = addDays(todayMonday, weekOffset * 7)
+              const currentViewSunday = addDays(currentViewMonday, 6)
+              const viewEndStr = toLocalDateStr(currentViewSunday)
+              // Find first date after the current view week
+              targetDate = nextJumpDates.find(d => d > viewEndStr) ?? null
+              // If nothing after, try finding the earliest that's on a different week
+              if (!targetDate) {
+                const viewStartStr = toLocalDateStr(currentViewMonday)
+                targetDate = nextJumpDates.find(d => d < viewStartStr) ?? null
+              }
+            } else if (nextJumpDate) {
+              targetDate = nextJumpDate
+            }
+
+            if (!targetDate) return null
+            const jumpDate = new Date(targetDate + 'T12:00:00')
             const jumpMonday = getMonday(jumpDate)
             const diffWeeks = Math.round((jumpMonday.getTime() - todayMonday.getTime()) / (7 * 24 * 60 * 60 * 1000))
             if (diffWeeks === weekOffset && (viewMode !== 'day' || selectedDayIndex === (jumpDate.getDay() === 0 ? 6 : jumpDate.getDay() - 1))) return null
@@ -782,7 +804,6 @@ export function WeeklyCalendar({
               <button
                 onClick={() => {
                   setWeekOffset(diffWeeks)
-                  // In day view, jump to the actual day
                   if (viewMode === 'day') {
                     const day = jumpDate.getDay()
                     setSelectedDayIndex(day === 0 ? 6 : day - 1)
@@ -947,7 +968,7 @@ export function WeeklyCalendar({
               const today = isToday(date)
               return (
                 <button key={day} type="button" onClick={() => { setViewMode('day'); setSelectedDayIndex(i); onViewModeChange?.('day') }} className={cn(
-                  'group border-l border-border px-1 py-2 text-center cursor-pointer hover:bg-primary/10 transition-colors border-b-2 border-b-transparent hover:border-b-primary/40',
+                  'group border-l border-border px-1 py-1.5 text-center cursor-pointer hover:bg-primary/10 transition-colors',
                   today && 'bg-primary/5',
                   !today && i >= 5 && 'bg-warm-sand/15'
                 )}>
@@ -963,6 +984,10 @@ export function WeeklyCalendar({
                   )}>
                     {date.getDate()}
                   </div>
+                  <div className={cn(
+                    'mx-auto mt-0.5 h-0.5 w-4 rounded-full transition-colors',
+                    today ? 'bg-primary/30' : 'bg-muted-foreground/15 group-hover:bg-primary/30'
+                  )} />
                 </button>
               )
             })}
@@ -1011,8 +1036,9 @@ export function WeeklyCalendar({
                       const startHour = parseTime(event.startTime)
                       const endHour = parseTime(event.endTime)
                       const top = (startHour - minHour) * hourHeight
-                      // 44px floor — 30-min slots render ≥44px tall to satisfy mobile tap-target guidelines
-                      const height = Math.max((endHour - startHour) * hourHeight, 44)
+                      // Selectable events (availability slots) use smaller min-height since grid position shows time
+                      const minH = event.selectable ? 28 : 44
+                      const height = Math.max((endHour - startHour) * hourHeight, minH)
                       const isSelected = popupEvent?.id === event.id
                       const layout = collisionLayout.get(event.id) ?? { col: 0, total: 1 }
                       const widthPct = 100 / layout.total
@@ -1048,16 +1074,16 @@ export function WeeklyCalendar({
                             </div>
                           )}
                           {isVeryNarrow ? (
-                            /* Ultra-compact: just time vertically */
+                            /* Ultra-compact: coach initial or start time */
                             <p className="truncate text-[8px] font-bold leading-tight px-px pt-px opacity-90">
-                              {formatTimeShort(event.startTime)}
+                              {event.selectable ? event.title.charAt(0) : formatTimeShort(event.startTime)}
                             </p>
                           ) : (
                             <>
                               <p className={cn('truncate font-medium leading-tight', isNarrow ? 'text-[10px] pr-0' : 'text-[11px] pr-3')}>
                                 {event.title}
                               </p>
-                              {height >= 24 && (
+                              {height >= 24 && !event.selectable && (
                                 <p className={cn('truncate opacity-90 leading-tight', isNarrow ? 'text-[9px]' : 'text-[10px]')}>
                                   {formatTimeShort(event.startTime)}{isNarrow ? '' : ` - ${formatTimeShort(event.endTime)}`}
                                 </p>
