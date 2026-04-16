@@ -40,44 +40,186 @@ function toRowData(c: Charge): ChargeRowData {
     playerName: c.player_name ?? null,
     date: c.session_date ?? c.created_at ?? null,
     badge: classifyBadge(c),
+    sessionId: c.session_id,
+    programId: c.program_id,
   }
 }
 
-function chargeSortKey(c: Charge): string {
-  // Sort by session date when present, else created_at. Descending (most recent first).
-  return (c.session_date ?? c.created_at ?? '')
+/** Build a service-group key for a charge */
+function serviceKey(c: Charge): string {
+  if (c.program_type === 'private') {
+    // Extract coach first name from description like "Private lesson with Maxim Paskalutsa"
+    const match = c.description?.match(/with\s+(\S+)/i)
+    return `private-${match?.[1] ?? 'coach'}`
+  }
+  if (c.program_id) return `program-${c.program_id}`
+  return 'other'
+}
+
+/** Friendly label for a service group */
+function serviceLabel(c: Charge): string {
+  if (c.program_type === 'private') {
+    const match = c.description?.match(/with\s+(\S+)/i)
+    return `Private with ${match?.[1] ?? 'Coach'}`
+  }
+  return c.program_name ?? c.description ?? 'Other'
+}
+
+interface PlayerGroup {
+  playerName: string
+  services: ServiceGroup[]
+  subtotalCents: number
+}
+
+interface ServiceGroup {
+  key: string
+  label: string
+  charges: Charge[]
+  subtotalCents: number
+}
+
+function buildGroups(charges: Charge[]): { playerGroups: PlayerGroup[]; dueTotalCents: number; scheduledTotalCents: number; totalCents: number } {
+  const today = new Date().toISOString().split('T')[0]
+
+  // Group by player
+  const byPlayer = new Map<string, Charge[]>()
+  for (const c of charges) {
+    const name = c.player_name ?? 'Unknown'
+    const existing = byPlayer.get(name)
+    if (existing) existing.push(c)
+    else byPlayer.set(name, [c])
+  }
+
+  let dueTotalCents = 0
+  let scheduledTotalCents = 0
+
+  const playerGroups: PlayerGroup[] = [...byPlayer.entries()].map(([playerName, playerCharges]) => {
+    // Group by service within player
+    const byService = new Map<string, { label: string; charges: Charge[] }>()
+    for (const c of playerCharges) {
+      const key = serviceKey(c)
+      const existing = byService.get(key)
+      if (existing) existing.charges.push(c)
+      else byService.set(key, { label: serviceLabel(c), charges: [c] })
+    }
+
+    const services: ServiceGroup[] = [...byService.entries()].map(([key, { label, charges: sCharges }]) => {
+      // Sort by date, oldest first (due first, then scheduled)
+      sCharges.sort((a, b) => {
+        const dateA = a.session_date ?? a.created_at ?? ''
+        const dateB = b.session_date ?? b.created_at ?? ''
+        return dateA.localeCompare(dateB)
+      })
+      const subtotalCents = sCharges.reduce((sum, c) => sum + c.amount_cents, 0)
+      return { key, label, charges: sCharges, subtotalCents }
+    })
+
+    const subtotalCents = playerCharges.reduce((sum, c) => sum + c.amount_cents, 0)
+
+    // Accumulate totals
+    for (const c of playerCharges) {
+      if (c.session_date && c.session_date > today && c.session_status === 'scheduled') {
+        scheduledTotalCents += c.amount_cents
+      } else {
+        dueTotalCents += c.amount_cents
+      }
+    }
+
+    return { playerName, services, subtotalCents }
+  })
+
+  return {
+    playerGroups,
+    dueTotalCents,
+    scheduledTotalCents,
+    totalCents: dueTotalCents + scheduledTotalCents,
+  }
 }
 
 export function ChargesList({ charges }: { charges: Charge[] }) {
   const [showPaid, setShowPaid] = useState(false)
 
   const active = charges.filter(c => c.status !== 'voided')
-  const positive = active.filter(c => c.amount_cents > 0)
+  const positive = active.filter(c => c.amount_cents > 0 && c.status !== 'paid' && c.status !== 'credited')
   const credits = active.filter(c => c.amount_cents < 0)
   const paid = active.filter(c => c.status === 'paid' || c.status === 'credited')
 
-  // Chronological: most recent (or most-imminent future) first by session date.
-  const sorted = [...positive].sort((a, b) => chargeSortKey(b).localeCompare(chargeSortKey(a)))
-
-  const rows = sorted.map(toRowData)
+  const { playerGroups, dueTotalCents, scheduledTotalCents, totalCents } = buildGroups(positive)
 
   if (charges.length === 0) return null
 
+  const hasMultiplePlayers = playerGroups.length > 1
+
   return (
     <div className="space-y-4">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Charges</h2>
-        <span className="text-xs text-muted-foreground">
-          {rows.length} {rows.length === 1 ? 'entry' : 'entries'}
-        </span>
-      </div>
+      <h2 className="text-lg font-semibold text-foreground">Charges</h2>
 
-      {rows.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-          <div className="divide-y divide-border/50">
-            {rows.map((row) => (
-              <ChargeRow key={row.id} charge={row} />
-            ))}
+      {playerGroups.length > 0 ? (
+        <div className="space-y-4">
+          {playerGroups.map(({ playerName, services, subtotalCents }) => (
+            <div key={playerName} className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+              {/* Player header */}
+              {hasMultiplePlayers && (
+                <div className="border-b border-border/50 bg-muted/20 px-4 py-2.5">
+                  <h3 className="text-sm font-semibold text-foreground">{playerName}</h3>
+                </div>
+              )}
+
+              {/* Service groups */}
+              {services.map(({ key, label, charges: sCharges, subtotalCents: sSubtotal }) => (
+                <div key={key}>
+                  {/* Service group header */}
+                  <div className="border-b border-border/30 bg-muted/10 px-4 py-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                  </div>
+
+                  {/* Charge rows */}
+                  <div className="divide-y divide-border/30">
+                    {sCharges.map(c => (
+                      <ChargeRow key={c.id} charge={toRowData(c)} compact />
+                    ))}
+                  </div>
+
+                  {/* Service subtotal */}
+                  {sCharges.length > 1 && (
+                    <div className="border-t border-border/30 bg-muted/5 px-4 py-2 flex justify-between">
+                      <span className="text-xs text-muted-foreground">Subtotal</span>
+                      <span className="text-xs font-semibold tabular-nums text-foreground">{formatCurrency(sSubtotal)}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Player subtotal */}
+              {hasMultiplePlayers && (
+                <div className="border-t border-border/50 bg-muted/20 px-4 py-2.5 flex justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Player subtotal</span>
+                  <span className="text-sm font-bold tabular-nums text-foreground">{formatCurrency(subtotalCents)}</span>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Totals */}
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+            <div className="divide-y divide-border/50">
+              {dueTotalCents > 0 && (
+                <div className="flex justify-between px-4 py-3">
+                  <span className="text-sm font-medium text-amber-700">Currently owed</span>
+                  <span className="text-sm font-bold tabular-nums text-amber-700">{formatCurrency(dueTotalCents)}</span>
+                </div>
+              )}
+              {scheduledTotalCents > 0 && (
+                <div className="flex justify-between px-4 py-3">
+                  <span className="text-sm font-medium text-muted-foreground">Upcoming</span>
+                  <span className="text-sm font-bold tabular-nums text-muted-foreground">{formatCurrency(scheduledTotalCents)}</span>
+                </div>
+              )}
+              <div className="flex justify-between px-4 py-3 bg-muted/10">
+                <span className="text-sm font-semibold text-foreground">Total</span>
+                <span className="text-sm font-bold tabular-nums text-foreground">{formatCurrency(totalCents)}</span>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
