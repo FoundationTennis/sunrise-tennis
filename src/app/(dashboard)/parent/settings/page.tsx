@@ -8,7 +8,8 @@ import { EmailChangeForm, PasswordChangeFormShared } from '@/components/settings
 import { SignOutButton } from './sign-out-button'
 import { ImageHero } from '@/components/image-hero'
 import { WarmToast } from '@/components/warm-toast'
-import { Settings } from 'lucide-react'
+import { SettingsAccordion } from './settings-accordion'
+import { Settings, User, Bell, CalendarDays, Camera, Mail, Lock, LogOut } from 'lucide-react'
 
 export default async function ParentSettingsPage({
   searchParams,
@@ -41,6 +42,90 @@ export default async function ParentSettingsPage({
   const primaryContact = family.primary_contact as { name?: string; phone?: string; email?: string } | null
   const secondaryContact = family.secondary_contact as { name?: string; phone?: string; email?: string } | null
 
+  const sections = [
+    {
+      id: 'contact',
+      icon: User,
+      label: 'Contact Information',
+      description: 'Primary and secondary contact details',
+      content: (
+        <ContactInfoForm
+          primaryContact={primaryContact}
+          secondaryContact={secondaryContact}
+        />
+      ),
+    },
+    {
+      id: 'notifications',
+      icon: Bell,
+      label: 'Notifications',
+      description: 'Session reminders and charge alerts',
+      content: (
+        <NotificationPrefsForm
+          currentPref={(family.notification_preferences as Record<string, string> | null)?.session_reminders ?? 'first_week_and_privates'}
+          preChargeHeadsUp={((family.notification_preferences as Record<string, unknown> | null)?.pre_charge_heads_up ?? true) !== false}
+        />
+      ),
+    },
+    {
+      id: 'calendar',
+      icon: CalendarDays,
+      label: 'Calendar Sync',
+      description: 'Subscribe to your schedule in Apple/Google Calendar',
+      content: (
+        <CalendarSyncForm calendarToken={family.calendar_token ?? null} />
+      ),
+    },
+    ...(players && players.length > 0 ? [{
+      id: 'media',
+      icon: Camera,
+      label: 'Media Consent',
+      description: 'Photo and video usage permissions',
+      content: (
+        <div className="divide-y divide-border/40 -mx-1">
+          {players.map((player) => (
+            <MediaConsentForm
+              key={player.id}
+              playerId={player.id}
+              playerName={`${player.first_name} ${player.last_name}`}
+              currentConsent={player.media_consent ?? false}
+            />
+          ))}
+        </div>
+      ),
+    }] : []),
+    {
+      id: 'email',
+      icon: Mail,
+      label: 'Email Address',
+      description: user.email ?? 'Change your login email',
+      content: (
+        <EmailChangeForm
+          currentEmail={user.email ?? ''}
+          pendingEmail={(user.user_metadata as Record<string, unknown> | undefined)?.new_email as string | undefined}
+        />
+      ),
+    },
+    {
+      id: 'password',
+      icon: Lock,
+      label: 'Password',
+      description: 'Update your password',
+      content: (
+        <PasswordChangeFormShared redirectPath="/parent/settings" />
+      ),
+    },
+    {
+      id: 'signout',
+      icon: LogOut,
+      label: 'Sign Out',
+      destructive: true,
+      content: (
+        <SignOutButton />
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-5">
       {/* ── Hero ── */}
@@ -59,66 +144,9 @@ export default async function ParentSettingsPage({
       {error && <WarmToast variant="danger">{error}</WarmToast>}
       {success && <WarmToast variant="success">{success}</WarmToast>}
 
-      {/* ── Profile ── */}
+      {/* ── Accordion ── */}
       <div className="animate-fade-up" style={{ animationDelay: '80ms' }}>
-        <ContactInfoForm
-          primaryContact={primaryContact}
-          secondaryContact={secondaryContact}
-        />
-      </div>
-
-      {/* ── Notifications ── */}
-      <div className="animate-fade-up" style={{ animationDelay: '160ms' }}>
-        <NotificationPrefsForm
-          currentPref={(family.notification_preferences as Record<string, string> | null)?.session_reminders ?? 'first_week_and_privates'}
-          preChargeHeadsUp={((family.notification_preferences as Record<string, unknown> | null)?.pre_charge_heads_up ?? true) !== false}
-        />
-      </div>
-
-      {/* ── Calendar & Media ── */}
-      <div className="animate-fade-up" style={{ animationDelay: '240ms' }}>
-        <CalendarSyncForm calendarToken={family.calendar_token ?? null} />
-      </div>
-
-      {players && players.length > 0 && (
-        <div className="animate-fade-up" style={{ animationDelay: '320ms' }}>
-          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-            <div className="border-b border-border/60 px-5 py-3">
-              <h2 className="text-sm font-semibold text-foreground">Media Consent</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Control whether photos and videos of your child may be used for coaching and promotional purposes.
-              </p>
-            </div>
-            <div className="divide-y divide-border/40 px-1">
-              {players.map((player) => (
-                <MediaConsentForm
-                  key={player.id}
-                  playerId={player.id}
-                  playerName={`${player.first_name} ${player.last_name}`}
-                  currentConsent={player.media_consent ?? false}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Email Change ── */}
-      <div className="animate-fade-up" style={{ animationDelay: '400ms' }}>
-        <EmailChangeForm
-          currentEmail={user.email ?? ''}
-          pendingEmail={(user.user_metadata as Record<string, unknown> | undefined)?.new_email as string | undefined}
-        />
-      </div>
-
-      {/* ── Password ── */}
-      <div className="animate-fade-up" style={{ animationDelay: '480ms' }}>
-        <PasswordChangeFormShared redirectPath="/parent/settings" />
-      </div>
-
-      {/* ── Account (destructive) ── */}
-      <div className="animate-fade-up" style={{ animationDelay: '560ms' }}>
-        <SignOutButton />
+        <SettingsAccordion sections={sections} />
       </div>
     </div>
   )
