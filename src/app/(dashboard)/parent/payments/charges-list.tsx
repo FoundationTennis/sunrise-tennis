@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { formatCurrency } from '@/lib/utils/currency'
-import { Gift, MinusCircle, ChevronDown, ChevronRight, CreditCard } from 'lucide-react'
+import { Gift, MinusCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import { formatDateFriendly } from '@/lib/utils/dates'
 import { ChargeRow, type ChargeRowData, type ChargeBadge } from './charge-row'
 import { usePayment } from './payment-context'
@@ -194,32 +194,35 @@ export function ChargesList({ charges }: { charges: Charge[] }) {
                 return (
                   <div key={key} className="border-b border-border/20 last:border-b-0">
                     {/* Service group summary — always visible, tappable to expand */}
-                    <button
-                      type="button"
-                      onClick={() => toggleGroup(groupKey)}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/10 transition-colors group"
-                    >
-                      <ChevronRight className={cn(
-                        'size-4 text-muted-foreground shrink-0 transition-transform',
-                        isGroupExpanded && 'rotate-90',
-                      )} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-foreground">{label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {sCharges.length} session{sCharges.length !== 1 ? 's' : ''}
-                          {statusParts.length > 0 && ` · ${statusParts.join(', ')}`}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-bold tabular-nums text-foreground">
+                    <div className="flex items-center gap-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(groupKey)}
+                        className="flex flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-muted/10 transition-colors"
+                      >
+                        <ChevronRight className={cn(
+                          'size-4 text-muted-foreground shrink-0 transition-transform',
+                          isGroupExpanded && 'rotate-90',
+                        )} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground">{label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {sCharges.length} session{sCharges.length !== 1 ? 's' : ''}
+                            {statusParts.length > 0 && ` · ${statusParts.join(', ')}`}
+                          </p>
+                        </div>
+                        <span className="text-sm font-bold tabular-nums text-foreground shrink-0">
                           {formatCurrency(sSubtotal)}
                         </span>
-                        <CreditCard
-                          className="size-3.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handlePaySubtotal(sSubtotal, `${label} - ${playerName}`) }}
-                        />
-                      </div>
-                    </button>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePaySubtotal(sSubtotal, `${label} - ${playerName}`)}
+                        className="shrink-0 mr-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        Pay
+                      </button>
+                    </div>
 
                     {/* Expanded: individual charge rows */}
                     {isGroupExpanded && (
@@ -243,17 +246,21 @@ export function ChargesList({ charges }: { charges: Charge[] }) {
 
               {/* Player subtotal */}
               {hasMultiplePlayers && (
-                <button
-                  type="button"
-                  onClick={() => handlePaySubtotal(subtotalCents, `All charges - ${playerName}`)}
-                  className="w-full border-t border-border/50 bg-gradient-to-r from-muted/20 to-transparent px-4 py-3 flex justify-between items-center hover:from-muted/30 transition-all group"
-                >
+                <div className="border-t border-border/50 bg-gradient-to-r from-muted/20 to-transparent px-4 py-3 flex justify-between items-center">
                   <span className="text-sm font-semibold text-muted-foreground">{playerName} total</span>
-                  <span className="text-sm font-bold tabular-nums text-foreground flex items-center gap-1.5">
-                    {formatCurrency(subtotalCents)}
-                    <CreditCard className="size-3.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </span>
-                </button>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold tabular-nums text-foreground">
+                      {formatCurrency(subtotalCents)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handlePaySubtotal(subtotalCents, `All charges - ${playerName}`)}
+                      className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      Pay
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           ))}
@@ -262,35 +269,52 @@ export function ChargesList({ charges }: { charges: Charge[] }) {
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-elevated">
             <div className="divide-y divide-border/50">
               {dueTotalCents > 0 && (
-                <button
-                  type="button"
-                  onClick={() => handlePaySubtotal(dueTotalCents, 'Currently owed')}
-                  className="w-full flex justify-between px-4 py-3.5 hover:bg-amber-50/50 transition-colors group"
-                >
+                <div className="flex justify-between items-center px-4 py-3.5">
                   <span className="text-sm font-semibold text-amber-700">Currently owed</span>
-                  <span className="text-sm font-bold tabular-nums text-amber-700 flex items-center gap-1.5">
-                    {formatCurrency(dueTotalCents)}
-                    <CreditCard className="size-3.5 text-amber-600/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </span>
-                </button>
-              )}
-              {scheduledTotalCents > 0 && (
-                <div className="flex justify-between px-4 py-3">
-                  <span className="text-sm font-medium text-muted-foreground">Upcoming</span>
-                  <span className="text-sm font-bold tabular-nums text-muted-foreground">{formatCurrency(scheduledTotalCents)}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold tabular-nums text-amber-700">
+                      {formatCurrency(dueTotalCents)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handlePaySubtotal(dueTotalCents, 'Currently owed')}
+                      className="rounded-lg border border-amber-400/50 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
+                    >
+                      Pay
+                    </button>
+                  </div>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => handlePaySubtotal(totalCents, 'Total balance')}
-                className="w-full flex justify-between px-4 py-3.5 bg-muted/10 hover:bg-muted/20 transition-colors group"
-              >
+              {scheduledTotalCents > 0 && (
+                <div className="flex justify-between items-center px-4 py-3">
+                  <span className="text-sm font-medium text-muted-foreground">Upcoming</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold tabular-nums text-muted-foreground">{formatCurrency(scheduledTotalCents)}</span>
+                    <button
+                      type="button"
+                      onClick={() => handlePaySubtotal(scheduledTotalCents, 'Upcoming charges')}
+                      className="rounded-lg border border-border bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      Pay
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-between items-center px-4 py-3.5 bg-muted/10">
                 <span className="text-base font-bold text-foreground">Total</span>
-                <span className="text-base font-bold tabular-nums text-foreground flex items-center gap-1.5">
-                  {formatCurrency(totalCents)}
-                  <CreditCard className="size-3.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </span>
-              </button>
+                <div className="flex items-center gap-3">
+                  <span className="text-base font-bold tabular-nums text-foreground">
+                    {formatCurrency(totalCents)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handlePaySubtotal(totalCents, 'Total balance')}
+                    className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-primary/90 transition-colors"
+                  >
+                    Pay all
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -22,8 +22,16 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
   function requestPayment(amountCents: number, description: string) {
     setPrefillAmountCents(amountCents)
     setPrefillDescription(description)
-    // Scroll to payment section
-    document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' })
+    // Scroll to payment section (use requestAnimationFrame to ensure DOM is updated)
+    requestAnimationFrame(() => {
+      const el = document.getElementById('payment-section')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else {
+        // Fallback: scroll to top where payment section would be
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    })
   }
 
   function clearPrefill() {
