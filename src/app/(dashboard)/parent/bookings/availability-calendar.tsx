@@ -83,6 +83,14 @@ const COACH_COLORS = [
   { bg: 'bg-[#6480A4]/15 border-[#6480A4]/30 text-[#6480A4]', hover: 'hover:bg-[#6480A4]/25' },
 ]
 
+const COACH_TOGGLE_COLORS = [
+  { active: 'bg-[#2B5EA7]/15 text-[#2B5EA7] border-[#2B5EA7]/30', dot: 'bg-[#2B5EA7]' },
+  { active: 'bg-[#E87450]/15 text-[#E87450] border-[#E87450]/30', dot: 'bg-[#E87450]' },
+  { active: 'bg-[#8B78B0]/15 text-[#8B78B0] border-[#8B78B0]/30', dot: 'bg-[#8B78B0]' },
+  { active: 'bg-[#F5B041]/15 text-[#9A6E1F] border-[#F5B041]/30', dot: 'bg-[#F5B041]' },
+  { active: 'bg-[#6480A4]/15 text-[#6480A4] border-[#6480A4]/30', dot: 'bg-[#6480A4]' },
+]
+
 const COACH_BOOKED_COLORS = [
   'bg-[#2B5EA7]/8 border-[#2B5EA7]/20 text-[#2B5EA7]/50 opacity-60',
   'bg-[#E87450]/8 border-[#E87450]/20 text-[#E87450]/50 opacity-60',
@@ -259,7 +267,6 @@ function generateCoachAvailabilityEvents(
               calEvents.push({
                 id: `${idPrefix}-avail-${eventId}`,
                 title: coachName,
-                subtitle: `${formatTimeShort(startTime)} - ${formatTimeShort(endTime)}`,
                 dayOfWeek, startTime, endTime,
                 date: dateStr,
                 color: `${availColor.bg} ${availColor.hover}`,
@@ -267,7 +274,6 @@ function generateCoachAvailabilityEvents(
               })
             }
 
-            if (duration === 60) slotStart += 30
           }
         }
       }
@@ -610,6 +616,8 @@ export function AvailabilityCalendar({
           <div className="flex flex-wrap items-center gap-1.5">
             {bookableCoaches.map((coach) => {
               const isActive = visibleCoachIds.has(coach.id)
+              const colorIdx = coachColorMap.get(coach.id) ?? 0
+              const toggleColor = COACH_TOGGLE_COLORS[colorIdx % COACH_TOGGLE_COLORS.length]
               return (
                 <button key={coach.id} type="button" onClick={() => {
                   setSelectedCoachIds(prev => {
@@ -623,7 +631,8 @@ export function AvailabilityCalendar({
                   })
                   setBookingPopup(null)
                 }}
-                  className={cn('rounded-full px-2.5 py-1 text-[11px] font-medium transition-all', isActive ? 'bg-primary/10 text-primary border border-primary/30' : 'border border-border text-muted-foreground/50 line-through')}>
+                  className={cn('flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all border', isActive ? toggleColor.active : 'border-border text-muted-foreground/50 line-through')}>
+                  <span className={cn('size-2 rounded-full shrink-0', isActive ? toggleColor.dot : 'bg-muted-foreground/30')} />
                   {coach.name}
                 </button>
               )
@@ -681,11 +690,12 @@ export function AvailabilityCalendar({
         <WeeklyCalendar
           events={activeEvents}
           onEventClick={handleEventClick}
-          nextJumpDate={activeTab === 'yours' ? nextPrivateDate ?? undefined : undefined}
-          nextJumpLabel="Next private"
+          nextJumpDate={activeTab === 'yours' ? nextPrivateDate ?? undefined : earliestAvailableDate ?? undefined}
+          nextJumpLabel={activeTab === 'yours' ? 'Next session' : 'Next available'}
           initialJumpDate={activeTab === 'availabilities' ? earliestAvailableDate ?? undefined : undefined}
           defaultView={viewMode}
           hideViewToggle
+          hideNextTerm
           onViewModeChange={(mode) => setViewMode(mode)}
           headerLeft={
             <div className="flex items-center gap-2">

@@ -481,6 +481,7 @@ export function WeeklyCalendar({
   onDayClick,
   initialJumpDate,
   onViewModeChange,
+  hideNextTerm,
 }: {
   events: CalendarEvent[]
   onEventClick?: (event: CalendarEvent) => void
@@ -520,6 +521,8 @@ export function WeeklyCalendar({
   initialJumpDate?: string
   /** Called when internal view mode changes (e.g. day header click in week view) */
   onViewModeChange?: (mode: 'week' | 'day') => void
+  /** Hide the generic "Next term" jump button */
+  hideNextTerm?: boolean
 }) {
   const [viewMode, setViewMode] = useState<'week' | 'day'>(defaultView ?? 'week')
 
@@ -746,7 +749,7 @@ export function WeeklyCalendar({
               Today
             </button>
           )}
-          {(() => {
+          {!hideNextTerm && (() => {
             const nextTerm = getNextTermStart(new Date())
             if (!nextTerm) return null
             const todayMonday = getMonday(new Date())
@@ -755,7 +758,14 @@ export function WeeklyCalendar({
             if (diffWeeks <= 0 || diffWeeks === weekOffset) return null
             return (
               <button
-                onClick={() => setWeekOffset(diffWeeks)}
+                onClick={() => {
+                  setWeekOffset(diffWeeks)
+                  // In day view, jump to the term start day (not stay on current selectedDayIndex)
+                  if (viewMode === 'day') {
+                    const day = nextTerm.getDay()
+                    setSelectedDayIndex(day === 0 ? 6 : day - 1)
+                  }
+                }}
                 className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20"
               >
                 Next term
@@ -767,10 +777,17 @@ export function WeeklyCalendar({
             const todayMonday = getMonday(new Date())
             const jumpMonday = getMonday(jumpDate)
             const diffWeeks = Math.round((jumpMonday.getTime() - todayMonday.getTime()) / (7 * 24 * 60 * 60 * 1000))
-            if (diffWeeks === weekOffset) return null
+            if (diffWeeks === weekOffset && (viewMode !== 'day' || selectedDayIndex === (jumpDate.getDay() === 0 ? 6 : jumpDate.getDay() - 1))) return null
             return (
               <button
-                onClick={() => setWeekOffset(diffWeeks)}
+                onClick={() => {
+                  setWeekOffset(diffWeeks)
+                  // In day view, jump to the actual day
+                  if (viewMode === 'day') {
+                    const day = jumpDate.getDay()
+                    setSelectedDayIndex(day === 0 ? 6 : day - 1)
+                  }
+                }}
                 className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20"
               >
                 {nextJumpLabel}
@@ -930,19 +947,19 @@ export function WeeklyCalendar({
               const today = isToday(date)
               return (
                 <button key={day} type="button" onClick={() => { setViewMode('day'); setSelectedDayIndex(i); onViewModeChange?.('day') }} className={cn(
-                  'border-l border-border px-1 py-2 text-center cursor-pointer hover:bg-primary/10 transition-colors',
+                  'group border-l border-border px-1 py-2 text-center cursor-pointer hover:bg-primary/10 transition-colors border-b-2 border-b-transparent hover:border-b-primary/40',
                   today && 'bg-primary/5',
                   !today && i >= 5 && 'bg-warm-sand/15'
                 )}>
                   <span className={cn(
                     'text-[10px] font-medium uppercase tracking-wide',
-                    today ? 'text-primary' : 'text-muted-foreground'
+                    today ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'
                   )}>
                     {day.slice(0, 3)}
                   </span>
                   <div className={cn(
-                    'mx-auto mt-0.5 flex size-7 items-center justify-center rounded-full text-xs font-bold',
-                    today ? 'bg-primary text-white' : 'text-foreground'
+                    'mx-auto mt-0.5 flex size-7 items-center justify-center rounded-full text-xs font-bold transition-colors',
+                    today ? 'bg-primary text-white' : 'text-foreground group-hover:bg-primary/10'
                   )}>
                     {date.getDate()}
                   </div>
