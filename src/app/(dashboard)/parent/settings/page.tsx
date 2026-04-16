@@ -4,7 +4,7 @@ import { ContactInfoForm } from './contact-info-form'
 import { MediaConsentForm } from './media-consent-form'
 import { NotificationPrefsForm } from './notification-prefs-form'
 import { CalendarSyncForm } from './calendar-sync-form'
-import { PasswordChangeForm } from './password-change-form'
+import { EmailChangeForm, PasswordChangeFormShared } from '@/components/settings'
 import { SignOutButton } from './sign-out-button'
 import { ImageHero } from '@/components/image-hero'
 import { WarmToast } from '@/components/warm-toast'
@@ -104,13 +104,21 @@ export default async function ParentSettingsPage({
         </div>
       )}
 
-      {/* ── Security ── */}
+      {/* ── Email Change ── */}
       <div className="animate-fade-up" style={{ animationDelay: '400ms' }}>
-        <PasswordChangeForm />
+        <EmailChangeForm
+          currentEmail={user.email ?? ''}
+          pendingEmail={(user.user_metadata as Record<string, unknown> | undefined)?.new_email as string | undefined}
+        />
+      </div>
+
+      {/* ── Password ── */}
+      <div className="animate-fade-up" style={{ animationDelay: '480ms' }}>
+        <PasswordChangeFormShared redirectPath="/parent/settings" />
       </div>
 
       {/* ── Account (destructive) ── */}
-      <div className="animate-fade-up" style={{ animationDelay: '480ms' }}>
+      <div className="animate-fade-up" style={{ animationDelay: '560ms' }}>
         <SignOutButton />
       </div>
     </div>

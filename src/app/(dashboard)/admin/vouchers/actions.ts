@@ -313,7 +313,8 @@ export async function saveExtractedData(voucherId: string, formData: FormData) {
     if (val) fields[key] = val === 'Yes' || val === 'true'
   }
 
-  await supabase.from('vouchers').update(fields).eq('id', voucherId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await supabase.from('vouchers').update(fields as any).eq('id', voucherId)
 
   revalidatePath('/admin/vouchers')
 }

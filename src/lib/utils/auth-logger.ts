@@ -3,7 +3,7 @@
 import { headers } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 
-type AuthEventType = 'login' | 'login_failed' | 'signup' | 'signout' | 'magic_link_request'
+type AuthEventType = 'login' | 'login_failed' | 'signup' | 'signout' | 'magic_link_request' | 'password_change' | 'email_change_request' | 'email_change_confirmed'
 
 interface LogAuthEventParams {
   userId?: string | null

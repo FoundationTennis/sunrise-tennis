@@ -17,9 +17,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending'),
-    // Unread parent messages (messages table pending migration)
-    // @ts-expect-error messages table not yet in DB types
-    supabase.from('messages')
+    // Unread parent messages (messages table pending migration — cast until DB types updated)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from('messages')
       .select('id', { count: 'exact', head: true })
       .eq('recipient_role', 'admin')
       .is('read_at', null)
@@ -44,6 +44,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/admin/messages', label: 'Messages', icon: 'MessageSquare', badge: messageBadge },
     { href: '/admin/notifications', label: 'Notifications', icon: 'Bell' },
     { href: '/admin/activity', label: 'Activity', icon: 'Shield' },
+    { href: '/admin/settings', label: 'Settings', icon: 'Settings' },
   ]
 
   return (

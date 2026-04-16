@@ -34,9 +34,9 @@ export default async function ParentLayout({ children }: { children: React.React
           .select('id', { count: 'exact', head: true })
           .eq('family_id', role.family_id)
           .eq('status', 'pending'),
-        // Unread message replies
-        // @ts-expect-error messages table pending migration
-        supabase.from('messages')
+        // Unread message replies (cast until DB types updated)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('messages')
           .select('id', { count: 'exact', head: true })
           .eq('sender_id', user.id)
           .not('admin_reply', 'is', null)

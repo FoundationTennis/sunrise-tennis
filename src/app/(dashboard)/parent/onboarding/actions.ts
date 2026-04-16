@@ -179,8 +179,9 @@ export async function completeOnboarding(pushSubscription: string | null) {
     }
   }
 
-  // Mark onboarding complete
-  const { error } = await supabase
+  // Mark onboarding complete (columns added after types generated)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('families')
     .update({ completed_onboarding: true, terms_acknowledged_at: new Date().toISOString() })
     .eq('id', familyId)

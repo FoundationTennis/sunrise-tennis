@@ -20,15 +20,15 @@ export default async function CoachLayout({ children }: { children: React.ReactN
 
     if (role?.coach_id) {
       const [bookingsResult, messagesResult] = await Promise.all([
-        // Pending private booking requests for this coach
-        supabase
-          .from('bookings')
+        // Pending private booking requests for this coach (coach_id added after types generated)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('bookings')
           .select('id', { count: 'exact', head: true })
           .eq('coach_id', role.coach_id)
           .eq('status', 'pending'),
-        // Unread messages for this coach
-        // @ts-expect-error messages table pending migration
-        supabase.from('messages')
+        // Unread messages for this coach (cast until DB types updated)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('messages')
           .select('id', { count: 'exact', head: true })
           .eq('recipient_role', 'coach')
           .eq('recipient_id', user.id)
@@ -47,6 +47,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
     { href: '/coach/privates', label: 'Privates', icon: 'Users', badge: privatesBadge },
     { href: '/coach/messages', label: 'Messages', icon: 'MessageSquare', badge: messagesBadge },
     { href: '/coach/earnings', label: 'Earnings', icon: 'DollarSign' },
+    { href: '/coach/settings', label: 'Settings', icon: 'Settings' },
   ]
 
   return (
