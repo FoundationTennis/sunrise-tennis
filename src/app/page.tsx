@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Image from 'next/image'
 import { Sun, Users, Calendar, BarChart3, MapPin, Phone, ChevronRight, ChevronDown, Trophy, Star, GraduationCap, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,38 @@ import { OurApproach } from '@/components/our-approach'
 import { PriceStrip } from '@/components/price-strip'
 import { ProgramsSection } from './programs-section'
 import { createClient } from '@supabase/supabase-js'
+
+export const revalidate = 3600
+
+export const metadata: Metadata = {
+  title: 'Junior Tennis Coaching Adelaide - Ages 3-18 | Sunrise Tennis',
+  description:
+    'Expert junior tennis coaching at Somerton Park Tennis Club. Game-based Hot Shots programs for ages 3-18. Red, Orange, Green and Yellow Ball levels. Book a free trial.',
+  alternates: { canonical: 'https://sunrisetennis.com.au' },
+  openGraph: {
+    title: 'Sunrise Tennis - Junior Tennis Coaching Adelaide',
+    description:
+      'Game-based tennis coaching for kids aged 3-18 at Somerton Park Tennis Club, Adelaide.',
+    url: 'https://sunrisetennis.com.au',
+    siteName: 'Sunrise Tennis',
+    locale: 'en_AU',
+    type: 'website',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Sunrise Tennis - Junior Tennis Coaching Adelaide',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Sunrise Tennis - Junior Tennis Coaching Adelaide',
+    description:
+      'Game-based tennis coaching for kids aged 3-18 at Somerton Park Tennis Club, Adelaide.',
+  },
+}
 
 async function getPrograms() {
   const supabase = createClient(
@@ -68,11 +101,52 @@ const STEPS = [
   },
 ]
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': ['SportsActivityLocation', 'LocalBusiness'],
+  name: 'Sunrise Tennis',
+  description:
+    'Junior tennis coaching for ages 3-18 at Somerton Park Tennis Club, Adelaide. Game-based Hot Shots programs.',
+  url: 'https://sunrisetennis.com.au',
+  telephone: '+61431368752',
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: '40 Wilton Ave',
+    addressLocality: 'Somerton Park',
+    addressRegion: 'SA',
+    postalCode: '5044',
+    addressCountry: 'AU',
+  },
+  geo: {
+    '@type': 'GeoCoordinates',
+    latitude: -34.9985,
+    longitude: 138.5168,
+  },
+  sameAs: [
+    'https://www.instagram.com/sunrisetennis',
+    'https://www.facebook.com/sunrisetennis',
+  ],
+  image: 'https://sunrisetennis.com.au/opengraph-image',
+  priceRange: '$$',
+  areaServed: [
+    'Somerton Park',
+    'Glenelg',
+    'Brighton',
+    'Seacliff',
+    'Morphettville',
+    'Adelaide',
+  ],
+}
+
 export default async function Home() {
   const programs = await getPrograms()
 
   return (
     <div className="min-h-screen bg-[#FFFBF7]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PublicHeader />
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}

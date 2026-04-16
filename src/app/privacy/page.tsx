@@ -1,7 +1,11 @@
+import type { Metadata } from 'next'
 import { LegalPageShell, type LegalSection } from '@/components/legal-page-shell'
 
-export const metadata = {
-  title: 'Privacy Policy — Sunrise Tennis',
+export const metadata: Metadata = {
+  title: 'Privacy Policy | Sunrise Tennis',
+  description:
+    'How Sunrise Tennis collects, uses, and protects your personal information.',
+  alternates: { canonical: 'https://sunrisetennis.com.au/privacy' },
 }
 
 const SECTIONS: LegalSection[] = [

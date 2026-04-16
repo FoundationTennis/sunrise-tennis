@@ -1,9 +1,30 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { MapPin, Phone, Mail, Instagram, Facebook, ChevronRight, Clock } from 'lucide-react'
 
-export const metadata = {
-  title: 'Contact — Sunrise Tennis',
-  description: 'Get in touch with Sunrise Tennis at Somerton Park Tennis Club, Adelaide.',
+export const metadata: Metadata = {
+  title: 'Contact Sunrise Tennis | Somerton Park, Adelaide',
+  description:
+    'Get in touch with Coach Maxim at Sunrise Tennis. Located at Somerton Park Tennis Club, 40 Wilton Ave, Somerton Park SA 5044. Call 0431 368 752.',
+  alternates: { canonical: 'https://sunrisetennis.com.au/contact' },
+  openGraph: {
+    title: 'Contact Sunrise Tennis | Somerton Park, Adelaide',
+    description:
+      'Get in touch with Coach Maxim at Sunrise Tennis, Somerton Park Tennis Club.',
+    url: 'https://sunrisetennis.com.au/contact',
+    siteName: 'Sunrise Tennis',
+    locale: 'en_AU',
+    type: 'website',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Sunrise Tennis - Contact',
+      },
+    ],
+  },
+  twitter: { card: 'summary_large_image' },
 }
 
 const MAPS_EMBED_SRC =

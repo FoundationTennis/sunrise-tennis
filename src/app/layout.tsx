@@ -13,12 +13,15 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sunrisetennis.com.au"),
   title: {
     default: "Sunrise Tennis",
     template: "%s | Sunrise Tennis",
   },
-  description: "Coaching, bookings, and team management for Sunrise Tennis.",
+  description:
+    "Junior tennis coaching for ages 3-18 at Somerton Park Tennis Club, Adelaide. Game-based Hot Shots programs from Blue Ball to Yellow Ball squads.",
   manifest: "/manifest.json",
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
