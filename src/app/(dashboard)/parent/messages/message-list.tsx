@@ -1,10 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MessageSquare, ChevronDown, ChevronUp, Reply, Clock, CheckCircle } from 'lucide-react'
-import { cn } from '@/lib/utils/cn'
+import { Clock, Reply } from 'lucide-react'
 
 const CATEGORY_LABELS: Record<string, string> = {
   general: 'General',
@@ -42,79 +40,70 @@ export function MessageList({ messages }: { messages: Message[] }) {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-foreground">Your Messages</h2>
-      {messages.map((msg) => {
-        const isExpanded = expanded === msg.id
-        const hasReply = !!msg.admin_reply
-        const isNewReply = hasReply && !msg.read_at
+      <h2 className="text-sm font-semibold text-foreground">Conversation</h2>
 
-        return (
-          <Card
-            key={msg.id}
-            className={cn(
-              'overflow-hidden border-border bg-card shadow-card transition-all',
-              isNewReply && 'border-primary/30 bg-primary/5'
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => setExpanded(isExpanded ? null : msg.id)}
-              className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
-            >
-              <div className={cn(
-                'mt-0.5 rounded-full p-1.5',
-                hasReply ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
-              )}>
-                {hasReply ? <CheckCircle className="size-3.5" /> : <Clock className="size-3.5" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium text-foreground">{msg.subject}</span>
-                  {isNewReply && (
-                    <Badge variant="default" className="shrink-0 text-[10px] px-1.5 py-0">New reply</Badge>
+      <div className="space-y-3">
+        {messages.map((msg) => {
+          const isExpanded = expanded === msg.id
+          const hasReply = !!msg.admin_reply
+          const isNewReply = hasReply && !msg.read_at
+
+          return (
+            <div key={msg.id} className="space-y-2">
+              {/* Parent bubble (right-aligned) */}
+              <button
+                type="button"
+                onClick={() => setExpanded(isExpanded ? null : msg.id)}
+                className="ml-auto block max-w-[85%] text-left"
+              >
+                <div className="rounded-xl rounded-tr-sm bg-gradient-to-r from-[#E87450] to-[#F5B041] px-4 py-3 text-white shadow-sm transition-shadow hover:shadow-md">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{msg.subject}</span>
+                    {isNewReply && (
+                      <Badge variant="default" className="shrink-0 text-[10px] px-1.5 py-0 bg-white/20 text-white border-0">New reply</Badge>
+                    )}
+                  </div>
+                  {isExpanded && (
+                    <p className="mt-1.5 text-sm text-white/90 whitespace-pre-wrap">{msg.body}</p>
                   )}
+                  <div className="mt-1.5 flex items-center gap-2 text-[10px] text-white/60">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-white/15 text-white/80 border-0">
+                      {CATEGORY_LABELS[msg.category] || msg.category}
+                    </Badge>
+                    <span>To {msg.recipient_role === 'admin' ? 'Admin' : 'Coach'}</span>
+                    <span>{timeAgo(msg.created_at)}</span>
+                  </div>
                 </div>
-                <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                    {CATEGORY_LABELS[msg.category] || msg.category}
-                  </Badge>
-                  <span>To {msg.recipient_role === 'admin' ? 'Admin' : 'Coach'}</span>
-                  <span>{timeAgo(msg.created_at)}</span>
-                </div>
-              </div>
-              {isExpanded ? <ChevronUp className="size-4 shrink-0 text-muted-foreground mt-1" /> : <ChevronDown className="size-4 shrink-0 text-muted-foreground mt-1" />}
-            </button>
+              </button>
 
-            {isExpanded && (
-              <CardContent className="border-t border-border pt-3 pb-4 space-y-3">
-                {/* Original message */}
-                <div className="rounded-lg bg-muted/50 px-3 py-2">
-                  <p className="text-xs font-medium text-muted-foreground mb-1">You wrote:</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{msg.body}</p>
-                </div>
-
-                {/* Reply */}
-                {hasReply ? (
-                  <div className="rounded-lg bg-primary/5 border border-primary/10 px-3 py-2">
-                    <div className="flex items-center gap-1.5 mb-1">
+              {/* Staff reply bubble (left-aligned) */}
+              {isExpanded && hasReply && (
+                <div className="mr-auto max-w-[85%]">
+                  <div className="rounded-xl rounded-tl-sm border border-border bg-card px-4 py-3 shadow-sm">
+                    <div className="flex items-center gap-1.5 mb-1.5">
                       <Reply className="size-3 text-primary" />
                       <p className="text-xs font-medium text-primary">
-                        Reply {msg.replied_at ? `- ${timeAgo(msg.replied_at)}` : ''}
+                        Sunrise Tennis {msg.replied_at ? `· ${timeAgo(msg.replied_at)}` : ''}
                       </p>
                     </div>
                     <p className="text-sm text-foreground whitespace-pre-wrap">{msg.admin_reply}</p>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                </div>
+              )}
+
+              {/* Awaiting reply indicator */}
+              {isExpanded && !hasReply && (
+                <div className="mr-auto max-w-[85%]">
+                  <div className="flex items-center gap-1.5 rounded-xl rounded-tl-sm border border-border/60 bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
                     <Clock className="size-3" />
                     <span>Awaiting reply - we typically respond within 24 hours</span>
                   </div>
-                )}
-              </CardContent>
-            )}
-          </Card>
-        )
-      })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

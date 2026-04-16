@@ -31,6 +31,9 @@ export function ComposeForm({
   const [open, setOpen] = useState(defaultOpen)
   const [recipientRole, setRecipientRole] = useState('admin')
   const [category, setCategory] = useState('general')
+  const [bodyText, setBodyText] = useState('')
+
+  const QUICK_REPLIES = ['Thanks!', 'Got it', 'Can we reschedule?']
 
   return (
     <Card className="overflow-hidden border-border bg-card shadow-card">
@@ -119,13 +122,27 @@ export function ComposeForm({
 
               <div className="sm:col-span-2">
                 <Label htmlFor="body">Message</Label>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {QUICK_REPLIES.map((reply) => (
+                    <button
+                      key={reply}
+                      type="button"
+                      onClick={() => setBodyText(reply)}
+                      className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                    >
+                      {reply}
+                    </button>
+                  ))}
+                </div>
                 <textarea
                   id="body"
                   name="body"
                   required
                   rows={4}
                   maxLength={5000}
-                  className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-y"
+                  value={bodyText}
+                  onChange={(e) => setBodyText(e.target.value)}
+                  className="mt-2 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-y"
                   placeholder="Type your message..."
                 />
               </div>

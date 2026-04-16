@@ -8,12 +8,39 @@ export function StickyMobileCTA() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    const onScroll = () => {
-      // Show after scrolling past the hero (approx 1 viewport height)
-      setVisible(window.scrollY > window.innerHeight * 0.8)
+    // Show after scrolling past the hero; hide when the footer enters view so the footer links stay tappable.
+    const footer = document.querySelector('footer')
+
+    let footerInView = false
+
+    const update = () => {
+      const pastHero = window.scrollY > window.innerHeight * 0.8
+      setVisible(pastHero && !footerInView)
     }
+
+    const onScroll = () => update()
+
+    let observer: IntersectionObserver | null = null
+    if (footer) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            footerInView = entry.isIntersecting
+          }
+          update()
+        },
+        { rootMargin: '0px 0px -20% 0px', threshold: 0 },
+      )
+      observer.observe(footer)
+    }
+
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    update()
+
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (observer) observer.disconnect()
+    }
   }, [])
 
   if (!visible) return null

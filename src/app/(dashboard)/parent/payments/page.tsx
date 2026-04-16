@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { EmptyState } from '@/components/empty-state'
 import { CreditCard } from 'lucide-react'
+import { WarmToast } from '@/components/warm-toast'
 import { PaymentOptions } from './payment-options'
 import { ChargesList } from './charges-list'
 import { VoucherForm, VoucherHistory } from './voucher-form'
@@ -136,14 +137,10 @@ export default async function ParentPaymentsPage({
   return (
     <div className="space-y-6">
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {decodeURIComponent(error)}
-        </div>
+        <WarmToast variant="danger">{decodeURIComponent(error)}</WarmToast>
       )}
       {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {decodeURIComponent(success)}
-        </div>
+        <WarmToast variant="success">{decodeURIComponent(success)}</WarmToast>
       )}
 
       {/* ── Overdue Banner ── */}

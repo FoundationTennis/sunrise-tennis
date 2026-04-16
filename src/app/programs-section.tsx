@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, LayoutGrid, Calendar } from 'lucide-react'
+import { ChevronDown, ChevronRight, LayoutGrid, Calendar, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface Program {
@@ -78,17 +78,28 @@ const LEVEL_CONFIG: Record<string, {
     ballColor: '#D4A20A',
     ballHighlight: '#EAB308',
   },
+  elite: {
+    label: 'Elite Squad',
+    ages: 'Ages 12+',
+    description: 'Competition-level training for advanced juniors — invitation-based.',
+    color: 'text-[#2B5EA7]',
+    bgLight: 'bg-[#2B5EA7]/10',
+    border: 'border-[#2B5EA7]/30',
+    ballColor: '#2B5EA7',
+    ballHighlight: '#4A7EC7',
+  },
 }
 
-// Catch-all for unknown levels (like "elite", "orange-green")
-const DEFAULT_LEVEL_CONFIG = {
-  ages: '',
-  description: 'Specialised coaching program for advanced players.',
-  color: 'text-[#2B5EA7]',
-  bgLight: 'bg-[#2B5EA7]/10',
-  border: 'border-[#2B5EA7]/30',
-  ballColor: '#2B5EA7',
-  ballHighlight: '#4A7EC7',
+// Canonical display level — orange-green is not its own level; show under both orange AND green (cards)
+// and render with orange styling in the calendar (still one row per program, NAME conveys the dual nature).
+function displayLevelForCalendar(level: string): string {
+  if (level === 'orange-green') return 'orange'
+  return level
+}
+
+// Any program name containing "Girls" (case-insensitive) triggers the girls-only pill.
+function isGirlsOnly(name: string): boolean {
+  return /\bgirls\b/i.test(name)
 }
 
 function TennisBall({ color, highlight, size = 64 }: { color: string; highlight: string; size?: number }) {
@@ -108,6 +119,15 @@ function TennisBall({ color, highlight, size = 64 }: { color: string; highlight:
   )
 }
 
+function GirlsPill() {
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-[#E87AA8]/15 px-2 py-0.5 text-[10px] font-semibold text-[#C04F82]">
+      <Sparkles className="size-2.5" />
+      Girls only
+    </span>
+  )
+}
+
 function formatTime(time: string) {
   const [h, m] = time.split(':').map(Number)
   const ampm = h >= 12 ? 'PM' : 'AM'
@@ -124,20 +144,27 @@ export function ProgramsSection({ programs }: { programs: Program[] }) {
   const [view, setView] = useState<'cards' | 'calendar'>('cards')
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null)
 
-  // Group by level
+  // Cards view: bucket by level. orange-green programs appear in BOTH orange and green buckets.
   const byLevel = new Map<string, Program[]>()
   for (const p of programs) {
-    const list = byLevel.get(p.level) ?? []
-    list.push(p)
-    byLevel.set(p.level, list)
+    const buckets = p.level === 'orange-green' ? ['orange', 'green'] : [p.level]
+    for (const bucket of buckets) {
+      const list = byLevel.get(bucket) ?? []
+      list.push(p)
+      byLevel.set(bucket, list)
+    }
   }
 
-  const levelOrder = ['blue', 'red', 'orange', 'green', 'yellow']
-  const sortedLevels = [...byLevel.entries()].sort((a, b) => {
-    const ai = levelOrder.indexOf(a[0])
-    const bi = levelOrder.indexOf(b[0])
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
-  })
+  // Known level order: blue, red, orange, green, yellow, elite. Everything else sorts to end.
+  const levelOrder = ['blue', 'red', 'orange', 'green', 'yellow', 'elite']
+  const sortedLevels = [...byLevel.entries()]
+    // Only render buckets that have a LEVEL_CONFIG entry — unknowns (e.g. "competitive") skip the card view.
+    .filter(([level]) => LEVEL_CONFIG[level])
+    .sort((a, b) => {
+      const ai = levelOrder.indexOf(a[0])
+      const bi = levelOrder.indexOf(b[0])
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+    })
 
   return (
     <section id="programs" className="scroll-mt-20 bg-[#FFFBF7] px-4 py-16 sm:py-20">
@@ -181,7 +208,7 @@ export function ProgramsSection({ programs }: { programs: Program[] }) {
         {view === 'cards' && (
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {sortedLevels.map(([level, progs]) => {
-              const config = LEVEL_CONFIG[level] ?? { ...DEFAULT_LEVEL_CONFIG, label: level.charAt(0).toUpperCase() + level.slice(1) }
+              const config = LEVEL_CONFIG[level]
               const isExpanded = expandedLevel === level
               const minPrice = Math.min(...progs.map((p) => p.per_session_cents ?? Infinity))
               const sessionCount = progs.length
@@ -200,7 +227,7 @@ export function ProgramsSection({ programs }: { programs: Program[] }) {
                       <TennisBall color={config.ballColor} highlight={config.ballHighlight} size={56} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h3 className={`text-lg font-semibold ${config.color}`}>{config.label}</h3>
                         {config.ages && (
                           <span className="text-xs text-[#8899A6]">{config.ages}</span>
@@ -229,18 +256,22 @@ export function ProgramsSection({ programs }: { programs: Program[] }) {
                       <div className="space-y-2">
                         {progs.map((p) => (
                           <div
-                            key={p.id}
+                            key={`${level}-${p.id}`}
                             className="flex items-center justify-between rounded-lg bg-white/80 px-3 py-2 shadow-sm"
                           >
-                            <div>
-                              <p className="text-sm font-medium text-[#1A2332]">
-                                {DAYS[p.day_of_week ?? 0]}{' '}
-                                {p.start_time && formatTime(p.start_time)}
-                                {p.end_time && ` – ${formatTime(p.end_time)}`}
-                              </p>
-                              <p className="text-xs text-[#8899A6]">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <p className="text-sm font-medium text-[#1A2332]">
+                                  {DAYS[p.day_of_week ?? 0]}{' '}
+                                  {p.start_time && formatTime(p.start_time)}
+                                  {p.end_time && ` – ${formatTime(p.end_time)}`}
+                                </p>
+                                {isGirlsOnly(p.name) && <GirlsPill />}
+                              </div>
+                              <p className="mt-0.5 text-xs text-[#8899A6]">
                                 {p.type === 'squad' ? 'Squad' : 'Group'}
                                 {p.per_session_cents ? ` · ${formatPrice(p.per_session_cents)}/session` : ''}
+                                {p.level === 'orange-green' ? ' · Orange/Green bridging' : ''}
                               </p>
                             </div>
                           </div>
@@ -302,16 +333,20 @@ export function ProgramsSection({ programs }: { programs: Program[] }) {
                   return (
                     <div key={d} className="min-h-[200px] space-y-1.5 p-2">
                       {dayProgs.map((p) => {
-                        const config = LEVEL_CONFIG[p.level] ?? DEFAULT_LEVEL_CONFIG
+                        const displayLevel = displayLevelForCalendar(p.level)
+                        const config = LEVEL_CONFIG[displayLevel]
+                        if (!config) return null
+                        const label = p.level === 'orange-green' ? 'Orange/Green' : config.label
                         return (
                           <a
                             key={p.id}
                             href="#trial"
                             className={`block rounded-lg p-2 text-left transition-all hover:scale-[1.02] hover:shadow-sm ${config.bgLight} border ${config.border}`}
                           >
-                            <p className={`text-xs font-semibold ${config.color}`}>
-                              {LEVEL_CONFIG[p.level]?.label ?? p.level}
-                            </p>
+                            <div className="flex items-start justify-between gap-1">
+                              <p className={`text-xs font-semibold ${config.color}`}>{label}</p>
+                              {isGirlsOnly(p.name) && <GirlsPill />}
+                            </div>
                             <p className="mt-0.5 text-[10px] text-[#556270]">
                               {p.start_time && formatTime(p.start_time)}
                               {p.end_time && ` – ${formatTime(p.end_time)}`}
@@ -344,24 +379,28 @@ export function ProgramsSection({ programs }: { programs: Program[] }) {
                     <h3 className="mb-2 text-sm font-semibold text-[#1A2332]">{DAYS[d]}day</h3>
                     <div className="space-y-2">
                       {dayProgs.map((p) => {
-                        const config = LEVEL_CONFIG[p.level] ?? DEFAULT_LEVEL_CONFIG
+                        const displayLevel = displayLevelForCalendar(p.level)
+                        const config = LEVEL_CONFIG[displayLevel]
+                        if (!config) return null
+                        const label = p.level === 'orange-green' ? 'Orange/Green' : config.label
                         return (
                           <a
                             key={p.id}
                             href="#trial"
                             className={`flex items-center justify-between rounded-lg p-3 ${config.bgLight} border ${config.border}`}
                           >
-                            <div>
-                              <p className={`text-sm font-semibold ${config.color}`}>
-                                {LEVEL_CONFIG[p.level]?.label ?? p.level}
-                              </p>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className={`text-sm font-semibold ${config.color}`}>{label}</p>
+                                {isGirlsOnly(p.name) && <GirlsPill />}
+                              </div>
                               <p className="text-xs text-[#556270]">
                                 {p.start_time && formatTime(p.start_time)}
                                 {p.end_time && ` – ${formatTime(p.end_time)}`}
                                 {p.per_session_cents ? ` · ${formatPrice(p.per_session_cents)}/session` : ''}
                               </p>
                             </div>
-                            <ChevronRight className="size-4 text-[#8899A6]" />
+                            <ChevronRight className="size-4 shrink-0 text-[#8899A6]" />
                           </a>
                         )
                       })}

@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { ImageHero } from '@/components/image-hero'
 import { AvailabilityCalendar } from './availability-calendar'
 import { MyBookings } from './my-bookings'
 import { LessonHistory } from './lesson-history'
 import { getCurrentOrNextTermEnd } from '@/lib/utils/school-terms'
+import { WarmToast } from '@/components/warm-toast'
 
 export default async function ParentBookingsPage({
   searchParams,
@@ -158,17 +158,14 @@ export default async function ParentBookingsPage({
       </ImageHero>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {decodeURIComponent(error)}
-        </div>
+        <WarmToast variant="danger">{decodeURIComponent(error)}</WarmToast>
       )}
       {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {decodeURIComponent(success)}
-        </div>
+        <WarmToast variant="success">{decodeURIComponent(success)}</WarmToast>
       )}
 
       {/* Calendar — default "Your Privates", coach tabs for availability */}
+      <div className="animate-fade-up" style={{ animationDelay: '80ms' }}>
       <AvailabilityCalendar
         players={(players ?? []).map(p => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, ball_color: p.ball_color }))}
         coaches={coachData}
@@ -205,14 +202,18 @@ export default async function ParentBookingsPage({
         rangeEndDate={rangeEndStr}
         playerMap={Object.fromEntries(playerMap)}
       />
+      </div>
 
       {/* Upcoming lessons (cancellable) */}
+      <div className="animate-fade-up" style={{ animationDelay: '160ms' }}>
       <MyBookings
         bookings={(bookings ?? []) as never[]}
         playerMap={Object.fromEntries(playerMap)}
       />
+      </div>
 
       {/* Lesson history */}
+      <div className="animate-fade-up" style={{ animationDelay: '240ms' }}>
       <LessonHistory
         pastBookings={pastBookings}
         lessonNotes={(playerLessonNotes ?? []).map(n => ({
@@ -233,6 +234,7 @@ export default async function ParentBookingsPage({
           last_name: p.last_name,
         }))}
       />
+      </div>
     </div>
   )
 }

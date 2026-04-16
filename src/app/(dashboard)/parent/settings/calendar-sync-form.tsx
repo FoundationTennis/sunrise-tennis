@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { generateCalendarToken, revokeCalendarToken } from '../actions'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Calendar, Copy, Check, RefreshCw, Trash2 } from 'lucide-react'
 
@@ -21,10 +20,18 @@ export function CalendarSyncForm({ calendarToken }: { calendarToken: string | nu
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <h2 className="text-lg font-semibold text-foreground">Calendar Sync</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+      <div className="border-b border-border/60 px-5 py-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <div className="flex size-6 items-center justify-center rounded-md bg-primary/10">
+            <Calendar className="size-3.5 text-primary" />
+          </div>
+          Calendar Sync
+        </h2>
+      </div>
+
+      <div className="p-5">
+        <p className="text-xs text-muted-foreground">
           Subscribe to your family&apos;s session schedule in Google Calendar, Apple Calendar, or Outlook.
         </p>
 
@@ -45,9 +52,9 @@ export function CalendarSyncForm({ calendarToken }: { calendarToken: string | nu
             <div className="rounded-lg border border-border bg-muted/20 p-3">
               <p className="text-xs font-medium text-foreground">How to subscribe:</p>
               <ul className="mt-1.5 space-y-1 text-xs text-muted-foreground">
-                <li><strong>Google Calendar:</strong> Settings → Add calendar → From URL → paste link</li>
-                <li><strong>Apple Calendar:</strong> File → New Calendar Subscription → paste link</li>
-                <li><strong>Outlook:</strong> Add calendar → Subscribe from web → paste link</li>
+                <li><strong>Google Calendar:</strong> Settings &rarr; Add calendar &rarr; From URL &rarr; paste link</li>
+                <li><strong>Apple Calendar:</strong> File &rarr; New Calendar Subscription &rarr; paste link</li>
+                <li><strong>Outlook:</strong> Add calendar &rarr; Subscribe from web &rarr; paste link</li>
               </ul>
             </div>
 
@@ -81,7 +88,7 @@ export function CalendarSyncForm({ calendarToken }: { calendarToken: string | nu
             </p>
           </form>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

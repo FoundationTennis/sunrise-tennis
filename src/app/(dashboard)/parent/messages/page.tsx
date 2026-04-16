@@ -2,6 +2,7 @@
 import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { MessageSquare } from 'lucide-react'
+import { WarmToast } from '@/components/warm-toast'
 import { EmptyState } from '@/components/empty-state'
 import { ImageHero } from '@/components/image-hero'
 import { MessageList } from './message-list'
@@ -84,14 +85,10 @@ export default async function ParentMessagesPage({
       </ImageHero>
 
       {error && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
+        <WarmToast variant="danger">{error}</WarmToast>
       )}
       {success && (
-        <div className="rounded-lg border border-success/20 bg-success-light px-4 py-3 text-sm text-success">
-          {success}
-        </div>
+        <WarmToast variant="success">{success}</WarmToast>
       )}
 
       {/* Compose Form */}

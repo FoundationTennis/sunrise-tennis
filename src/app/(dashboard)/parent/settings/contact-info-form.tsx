@@ -4,7 +4,7 @@ import { updateContactInfo } from '../actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
+import { User } from 'lucide-react'
 
 export function ContactInfoForm({
   primaryContact,
@@ -15,13 +15,20 @@ export function ContactInfoForm({
 }) {
   return (
     <form action={updateContactInfo}>
-      <Card>
-        <CardContent className="pt-6">
-          <h2 className="text-lg font-semibold text-foreground">Contact Information</h2>
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+        <div className="border-b border-border/60 px-5 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <div className="flex size-6 items-center justify-center rounded-md bg-primary/10">
+              <User className="size-3.5 text-primary" />
+            </div>
+            Contact Information
+          </h2>
+        </div>
 
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Primary Contact</h3>
-            <div className="mt-2 grid gap-4 sm:grid-cols-2">
+        <div className="p-5 space-y-5">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Primary Contact</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="contact_name" className="text-xs">Name</Label>
                 <Input id="contact_name" name="contact_name" type="text" required defaultValue={primaryContact?.name ?? ''} className="mt-1" />
@@ -37,9 +44,9 @@ export function ContactInfoForm({
             </div>
           </div>
 
-          <div className="mt-6">
-            <h3 className="text-sm font-medium text-muted-foreground">Secondary Contact (optional)</h3>
-            <div className="mt-2 grid gap-4 sm:grid-cols-2">
+          <div className="border-t border-border/40 pt-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Secondary Contact (optional)</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="secondary_name" className="text-xs">Name</Label>
                 <Input id="secondary_name" name="secondary_name" type="text" defaultValue={secondaryContact?.name ?? ''} className="mt-1" />
@@ -55,11 +62,11 @@ export function ContactInfoForm({
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end">
-            <Button type="submit">Save Changes</Button>
+          <div className="flex justify-end border-t border-border/40 pt-4">
+            <Button type="submit" size="sm">Save Changes</Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </form>
   )
 }

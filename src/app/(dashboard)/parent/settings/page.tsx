@@ -5,9 +5,10 @@ import { MediaConsentForm } from './media-consent-form'
 import { NotificationPrefsForm } from './notification-prefs-form'
 import { CalendarSyncForm } from './calendar-sync-form'
 import { PasswordChangeForm } from './password-change-form'
-import { PageHeader } from '@/components/page-header'
-import { Card, CardContent } from '@/components/ui/card'
-import { AlertCircle, CheckCircle } from 'lucide-react'
+import { SignOutButton } from './sign-out-button'
+import { ImageHero } from '@/components/image-hero'
+import { WarmToast } from '@/components/warm-toast'
+import { Settings } from 'lucide-react'
 
 export default async function ParentSettingsPage({
   searchParams,
@@ -41,63 +42,76 @@ export default async function ParentSettingsPage({
   const secondaryContact = family.secondary_contact as { name?: string; phone?: string; email?: string } | null
 
   return (
-    <div className="max-w-3xl">
-      <PageHeader title="Family Settings" description="Update your contact details and preferences." />
-
-      {error && (
-        <div className="mt-4 flex items-center gap-2 rounded-lg bg-[#C53030] px-4 py-3.5 text-sm font-medium text-white shadow-sm">
-          <AlertCircle className="size-4 shrink-0" />
-          {error}
+    <div className="space-y-5">
+      {/* ── Hero ── */}
+      <ImageHero src="/images/tennis/hero-sunset.jpg" alt="Tennis court">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
+            <Settings className="size-5" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white/80">Family</p>
+            <h1 className="text-2xl font-bold">Settings</h1>
+          </div>
         </div>
-      )}
+      </ImageHero>
 
-      {success && (
-        <div className="mt-4 flex items-center gap-2 rounded-lg bg-[#2D8A4E] px-4 py-3.5 text-sm font-medium text-white shadow-sm">
-          <CheckCircle className="size-4 shrink-0" />
-          {success}
-        </div>
-      )}
+      {/* ── Toasts ── */}
+      {error && <WarmToast variant="danger">{error}</WarmToast>}
+      {success && <WarmToast variant="success">{success}</WarmToast>}
 
-      <div className="mt-6 space-y-8">
-        {/* Contact Information */}
+      {/* ── Profile ── */}
+      <div className="animate-fade-up" style={{ animationDelay: '80ms' }}>
         <ContactInfoForm
           primaryContact={primaryContact}
           secondaryContact={secondaryContact}
         />
+      </div>
 
-        {/* Notification Preferences */}
+      {/* ── Notifications ── */}
+      <div className="animate-fade-up" style={{ animationDelay: '160ms' }}>
         <NotificationPrefsForm
           currentPref={(family.notification_preferences as Record<string, string> | null)?.session_reminders ?? 'first_week_and_privates'}
           preChargeHeadsUp={((family.notification_preferences as Record<string, unknown> | null)?.pre_charge_heads_up ?? true) !== false}
         />
+      </div>
 
-        {/* Calendar Sync */}
+      {/* ── Calendar & Media ── */}
+      <div className="animate-fade-up" style={{ animationDelay: '240ms' }}>
         <CalendarSyncForm calendarToken={family.calendar_token ?? null} />
+      </div>
 
-        {/* Password Change */}
-        <PasswordChangeForm />
-
-        {/* Media Consent */}
-        {players && players.length > 0 && (
-          <Card>
-            <CardContent className="pt-6">
-              <h2 className="text-lg font-semibold text-foreground">Media Consent</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+      {players && players.length > 0 && (
+        <div className="animate-fade-up" style={{ animationDelay: '320ms' }}>
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+            <div className="border-b border-border/60 px-5 py-3">
+              <h2 className="text-sm font-semibold text-foreground">Media Consent</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Control whether photos and videos of your child may be used for coaching and promotional purposes.
               </p>
-              <div className="mt-4 space-y-3">
-                {players.map((player) => (
-                  <MediaConsentForm
-                    key={player.id}
-                    playerId={player.id}
-                    playerName={`${player.first_name} ${player.last_name}`}
-                    currentConsent={player.media_consent ?? false}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+            <div className="divide-y divide-border/40 px-1">
+              {players.map((player) => (
+                <MediaConsentForm
+                  key={player.id}
+                  playerId={player.id}
+                  playerName={`${player.first_name} ${player.last_name}`}
+                  currentConsent={player.media_consent ?? false}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Security ── */}
+      <div className="animate-fade-up" style={{ animationDelay: '400ms' }}>
+        <PasswordChangeForm />
+      </div>
+
+      {/* ── Account (destructive) ── */}
+      <div className="animate-fade-up" style={{ animationDelay: '480ms' }}>
+        <SignOutButton />
       </div>
     </div>
   )

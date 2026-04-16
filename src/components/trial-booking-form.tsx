@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { CheckCircle, Loader2 } from 'lucide-react'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const AGES = Array.from({ length: 14 }, (_, i) => i + 3) // 3-16
+const AGES = Array.from({ length: 16 }, (_, i) => i + 3) // 3-18
 
 export function TrialBookingForm() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')

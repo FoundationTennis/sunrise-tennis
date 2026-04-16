@@ -4,23 +4,27 @@ import { changePassword } from '../actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
 import { Lock } from 'lucide-react'
 
 export function PasswordChangeForm() {
   return (
     <form action={changePassword}>
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2">
-            <Lock className="size-5 text-muted-foreground" />
-            <h2 className="text-lg font-semibold text-foreground">Change Password</h2>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+        <div className="border-b border-border/60 px-5 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <div className="flex size-6 items-center justify-center rounded-md bg-primary/10">
+              <Lock className="size-3.5 text-primary" />
+            </div>
+            Security
+          </h2>
+        </div>
+
+        <div className="p-5">
+          <p className="text-xs text-muted-foreground">
             Update your account password. Must be at least 8 characters.
           </p>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="new_password" className="text-xs">New Password</Label>
               <Input
@@ -49,13 +53,11 @@ export function PasswordChangeForm() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <Button type="submit" size="sm">
-              Update Password
-            </Button>
+          <div className="mt-4 flex justify-end">
+            <Button type="submit" size="sm">Update Password</Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </form>
   )
 }

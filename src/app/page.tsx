@@ -1,10 +1,12 @@
 import Image from 'next/image'
-import { Sun, Users, Calendar, BarChart3, MapPin, Phone, ChevronRight, Trophy, Star, GraduationCap } from 'lucide-react'
+import { Sun, Users, Calendar, BarChart3, MapPin, Phone, ChevronRight, ChevronDown, Trophy, Star, GraduationCap, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PublicHeader } from '@/components/public-header'
 import { PublicFooter } from '@/components/public-footer'
 import { StickyMobileCTA } from '@/components/sticky-mobile-cta'
 import { TrialBookingForm } from '@/components/trial-booking-form'
+import { OurApproach } from '@/components/our-approach'
+import { PriceStrip } from '@/components/price-strip'
 import { ProgramsSection } from './programs-section'
 import { createClient } from '@supabase/supabase-js'
 
@@ -29,12 +31,12 @@ const VALUE_PROPS = [
   {
     icon: Users,
     title: 'Every Level Welcome',
-    description: 'From first-time Blue Ball (age 3) to competitive Yellow Ball squads',
+    description: 'From first-time Blue Ball to competitive Yellow Ball squads — ages 3 to 18',
   },
   {
-    icon: Sun,
-    title: 'Small Groups, Big Results',
-    description: 'Max 6 per group so every child gets personal attention',
+    icon: Heart,
+    title: 'Personal Attention',
+    description: 'Individual feedback every session — not just group instruction',
   },
   {
     icon: Calendar,
@@ -88,17 +90,25 @@ export default async function Home() {
           <h1 className="mt-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
             Where Every Player Shines
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-white/85 sm:text-xl">
-            Professional junior tennis coaching for ages 3–16 at Somerton Park Tennis Club, Adelaide
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-white/95 sm:text-lg md:text-xl">
+            We coach through feel, not formula — every player read individually, every session built around play.
+          </p>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-white/75 sm:text-base">
+            Professional junior tennis coaching for ages 3–18 at Somerton Park Tennis Club, Adelaide
           </p>
 
-          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Button asChild size="lg" className="w-full rounded-full bg-white px-8 text-[#2B5EA7] shadow-lg hover:bg-white/90 sm:w-auto">
-              <a href="#programs">View Programs</a>
-            </Button>
-            <Button asChild size="lg" className="w-full rounded-full bg-[#E87450] px-8 text-white shadow-lg hover:bg-[#D06040] sm:w-auto">
+          {/* Single primary CTA + secondary text link */}
+          <div className="mt-8 flex flex-col items-center gap-4">
+            <Button asChild size="lg" className="w-full rounded-full bg-[#E87450] px-8 py-6 text-base font-semibold text-white shadow-lg hover:bg-[#D06040] sm:w-auto sm:px-10">
               <a href="#trial">Book a Free Trial</a>
             </Button>
+            <a
+              href="#programs"
+              className="inline-flex items-center gap-1 text-sm font-medium text-white/85 transition-colors hover:text-white"
+            >
+              See Programs
+              <ChevronDown className="size-4" />
+            </a>
           </div>
 
           {/* Trust indicators */}
@@ -120,7 +130,7 @@ export default async function Home() {
 
       {/* ── Social Proof Strip ────────────────────────────────────── */}
       <section className="relative -mt-8 z-10 px-4">
-        <div className="mx-auto max-w-4xl rounded-2xl border border-[#E0D0BE]/40 bg-white/90 px-6 py-5 shadow-lg backdrop-blur-sm">
+        <div className="mx-auto max-w-4xl rounded-2xl border border-[#E0D0BE]/40 bg-white/90 px-4 py-4 shadow-lg backdrop-blur-sm sm:px-6 sm:py-5">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
             <div className="flex items-center gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#2B5EA7]/10">
@@ -163,32 +173,38 @@ export default async function Home() {
       </section>
 
       {/* ── Value Propositions ─────────────────────────────────────── */}
-      <section className="bg-gradient-to-b from-[#FFFBF7] to-[#FFF6ED] px-4 py-16 sm:py-20">
+      <section className="bg-gradient-to-b from-[#FFFBF7] to-[#FFF6ED] px-4 py-14 sm:py-20">
         <div className="mx-auto max-w-5xl">
           <h2 className="text-center text-2xl font-bold text-[#1A2332] sm:text-3xl">
             Why Sunrise Tennis?
           </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-[#556270]">
+          <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-[#556270] sm:text-base">
             We create a supportive, fun environment where every child can develop their tennis skills and confidence
           </p>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
             {VALUE_PROPS.map((prop, i) => (
               <div
                 key={prop.title}
-                className="group rounded-xl border border-[#E0D0BE]/40 bg-white/80 p-6 shadow-sm transition-all hover:shadow-md"
+                className="group rounded-xl border border-[#E0D0BE]/40 bg-white/80 p-4 shadow-sm transition-all hover:shadow-md sm:p-6"
                 style={{ animationDelay: `${i * 80}ms` }}
               >
-                <div className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#2B5EA7]/10 to-[#E87450]/10">
-                  <prop.icon className="size-5 text-[#2B5EA7]" />
+                <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#2B5EA7]/10 to-[#E87450]/10 sm:size-11">
+                  <prop.icon className="size-4 text-[#2B5EA7] sm:size-5" />
                 </div>
-                <h3 className="mt-4 font-semibold text-[#1A2332]">{prop.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-[#556270]">{prop.description}</p>
+                <h3 className="mt-3 text-sm font-semibold text-[#1A2332] sm:mt-4 sm:text-base">{prop.title}</h3>
+                <p className="mt-1 text-xs leading-snug text-[#556270] sm:text-sm sm:leading-relaxed">{prop.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* ── Our Approach (coaching philosophy) ────────────────────── */}
+      <OurApproach />
+
+      {/* ── Price Strip ───────────────────────────────────────────── */}
+      <PriceStrip />
 
       {/* ── Programs ──────────────────────────────────────────────── */}
       <ProgramsSection programs={programs} />
@@ -268,7 +284,7 @@ export default async function Home() {
                 Based at Somerton Park Tennis Club in Adelaide, Sunrise Tennis provides professional coaching for juniors of all ages and abilities. From first-time Red Ball players to competitive Yellow Ball squads, our programs are designed to develop skills, confidence, and a love of the game.
               </p>
               <p className="mt-3 leading-relaxed text-[#556270]">
-                With small group sizes and structured progression through the ball-colour pathway, every child gets the attention they deserve. Our parent portal keeps you connected to your child&apos;s development with lesson notes, video analysis, and easy online booking.
+                With structured progression through the ball-colour pathway, every child gets individual feedback in every session. Our parent portal keeps you connected to your child&apos;s development with lesson notes, video analysis, and easy online booking.
               </p>
               <div className="mt-6">
                 <Button asChild variant="outline" className="rounded-full border-[#2B5EA7]/30 text-[#2B5EA7] hover:bg-[#2B5EA7]/5">
@@ -296,51 +312,60 @@ export default async function Home() {
       </section>
 
       {/* ── Location & Contact ────────────────────────────────────── */}
-      <section id="contact" className="scroll-mt-20 bg-[#FFFBF7] px-4 py-16 sm:py-20">
-        <div className="mx-auto max-w-4xl text-center">
-          <h2 className="text-2xl font-bold text-[#1A2332] sm:text-3xl">Find Us</h2>
-          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+      <section id="contact" className="scroll-mt-20 bg-[#FFFBF7] px-4 py-14 sm:py-20">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="text-center text-2xl font-bold text-[#1A2332] sm:text-3xl">Find Us</h2>
+          <div className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-3 sm:gap-6">
+            {/* Location */}
             <a
               href="https://maps.google.com/?q=Somerton+Park+Tennis+Club+40+Wilton+Ave+Somerton+Park+SA+5044"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex flex-col items-center rounded-xl border border-[#E0D0BE]/40 bg-white p-6 shadow-sm transition-all hover:shadow-md"
+              className="group flex items-center gap-3 rounded-xl border border-[#E0D0BE]/40 bg-white p-4 text-left shadow-sm transition-all hover:shadow-md sm:flex-col sm:items-center sm:p-6 sm:text-center"
             >
-              <div className="flex size-11 items-center justify-center rounded-full bg-[#2B5EA7]/10">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#2B5EA7]/10 sm:size-11">
                 <MapPin className="size-5 text-[#2B5EA7]" />
               </div>
-              <h3 className="mt-3 font-semibold text-[#1A2332]">Location</h3>
-              <p className="mt-1 text-sm text-[#556270]">
-                Somerton Park Tennis Club<br />
-                40 Wilton Ave, Somerton Park
-              </p>
+              <div className="min-w-0 sm:mt-3">
+                <h3 className="text-sm font-semibold text-[#1A2332] sm:text-base">Location</h3>
+                <p className="truncate text-xs text-[#556270] sm:mt-1 sm:whitespace-normal sm:text-sm">
+                  Somerton Park Tennis Club
+                  <span className="hidden sm:inline"><br />40 Wilton Ave, Somerton Park</span>
+                </p>
+              </div>
             </a>
 
+            {/* Call Us — Coach Maxim */}
             <a
               href="tel:0431368752"
-              className="group flex flex-col items-center rounded-xl border border-[#E0D0BE]/40 bg-white p-6 shadow-sm transition-all hover:shadow-md"
+              className="group flex items-center gap-3 rounded-xl border border-[#E0D0BE]/40 bg-white p-4 text-left shadow-sm transition-all hover:shadow-md sm:flex-col sm:items-center sm:p-6 sm:text-center"
             >
-              <div className="flex size-11 items-center justify-center rounded-full bg-[#E87450]/10">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#E87450]/10 sm:size-11">
                 <Phone className="size-5 text-[#E87450]" />
               </div>
-              <h3 className="mt-3 font-semibold text-[#1A2332]">Call Us</h3>
-              <p className="mt-1 text-sm text-[#556270]">
-                0431 368 752
-              </p>
+              <div className="min-w-0 sm:mt-3">
+                <h3 className="text-sm font-semibold text-[#1A2332] sm:text-base">Call Coach Maxim</h3>
+                <p className="truncate text-xs text-[#556270] sm:mt-1 sm:text-sm">
+                  0431 368 752
+                </p>
+              </div>
             </a>
 
+            {/* Book a Trial */}
             <a
               href="#trial"
-              className="group flex flex-col items-center rounded-xl border border-[#E0D0BE]/40 bg-white p-6 shadow-sm transition-all hover:shadow-md"
+              className="group flex items-center gap-3 rounded-xl border border-[#E0D0BE]/40 bg-white p-4 text-left shadow-sm transition-all hover:shadow-md sm:flex-col sm:items-center sm:p-6 sm:text-center"
             >
-              <div className="flex size-11 items-center justify-center rounded-full bg-[#2D8A4E]/10">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#2D8A4E]/10 sm:size-11">
                 <Calendar className="size-5 text-[#2D8A4E]" />
               </div>
-              <h3 className="mt-3 font-semibold text-[#1A2332]">Book a Trial</h3>
-              <p className="mt-1 text-sm text-[#556270]">
-                Free first session<br />
-                No account needed
-              </p>
+              <div className="min-w-0 sm:mt-3">
+                <h3 className="text-sm font-semibold text-[#1A2332] sm:text-base">Book a Trial</h3>
+                <p className="truncate text-xs text-[#556270] sm:mt-1 sm:whitespace-normal sm:text-sm">
+                  Free first session
+                  <span className="hidden sm:inline"><br />No account needed</span>
+                </p>
+              </div>
             </a>
           </div>
         </div>

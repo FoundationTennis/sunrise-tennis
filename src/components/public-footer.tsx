@@ -36,9 +36,12 @@ export function PublicFooter() {
             <h3 className="mb-3 text-sm font-semibold tracking-wide text-white/90 uppercase">Contact</h3>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <a href="tel:0431368752" className="flex items-center gap-2 transition-colors hover:text-white">
-                  <Phone className="size-4 shrink-0" />
-                  0431 368 752
+                <a href="tel:0431368752" className="flex items-start gap-2 transition-colors hover:text-white">
+                  <Phone className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    0431 368 752
+                    <span className="block text-xs text-white/50">Coach Maxim</span>
+                  </span>
                 </a>
               </li>
               <li>

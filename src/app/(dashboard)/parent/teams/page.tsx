@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient, getSessionUser } from '@/lib/supabase/server'
-import { PageHeader } from '@/components/page-header'
+import { ImageHero } from '@/components/image-hero'
 import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Trophy, ChevronRight, CalendarDays, MessageSquare, Users } from 'lucide-react'
@@ -49,7 +49,6 @@ export default async function ParentTeamsPage() {
           .in('player_id', playerIds)
           .eq('status', 'pending')
       : Promise.resolve({ data: [] }),
-    // Get next upcoming match date per team
     teamIds.length > 0
       ? supabase
           .from('availability')
@@ -65,7 +64,6 @@ export default async function ParentTeamsPage() {
     pendingByTeam.set(a.team_id, (pendingByTeam.get(a.team_id) ?? 0) + 1)
   })
 
-  // Next match date per team
   const nextMatchByTeam = new Map<string, string>()
   nextAvailability?.forEach((a) => {
     if (!nextMatchByTeam.has(a.team_id)) {
@@ -128,74 +126,103 @@ export default async function ParentTeamsPage() {
   }
 
   return (
-    <div>
-      <PageHeader title="Competition" description="Your children's competition teams." />
+    <div className="space-y-5">
+      {/* ── Hero ── */}
+      <ImageHero src="/images/tennis/hero-sunset.jpg" alt="Tennis court">
+        <div>
+          <p className="text-sm font-medium text-white/80">Competition</p>
+          <h1 className="text-2xl font-bold">Teams</h1>
+          <p className="mt-0.5 text-sm text-white/70">Competition teams your players are part of</p>
+        </div>
+      </ImageHero>
 
       {teams.length > 0 ? (
-        <div className="mt-6 space-y-3">
+        <div className="space-y-3">
           {teams.map(({ team, playerRoles, pending, nextMatch }, i) => (
-            <Link
+            <div
               key={team.id}
-              href={`/parent/teams/${team.id}`}
-              className="animate-fade-up group block overflow-hidden rounded-xl border border-border bg-card p-4 shadow-card transition-all hover:shadow-elevated hover:border-primary/30 press-scale"
-              style={{ animationDelay: `${i * 60}ms` }}
+              className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:shadow-elevated"
+              style={{ animationDelay: `${(i + 1) * 60}ms` }}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-semibold text-foreground truncate">{team.name}</h2>
-                    {team.division && (
-                      <Badge variant="outline" className="shrink-0 text-[10px]">{team.division}</Badge>
-                    )}
-                  </div>
+              <div className="flex">
+                <div className={`w-1 shrink-0 ${team.status === 'active' ? 'bg-gradient-to-b from-[#E87450] to-[#F5B041]' : 'bg-muted'}`} />
+                <div className="flex-1 p-4">
+                  {/* Team header */}
+                  <Link
+                    href={`/parent/teams/${team.id}`}
+                    className="group block"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-base font-semibold text-foreground truncate">{team.name}</h2>
+                          {team.division && (
+                            <Badge variant="outline" className="shrink-0 text-[10px]">{team.division}</Badge>
+                          )}
+                        </div>
 
-                  {team.competitionName && (
-                    <p className="mt-0.5 text-xs font-medium text-primary/80">
-                      <Trophy className="mr-1 inline size-3 align-text-bottom" />
-                      {team.competitionName}
-                      {team.season ? ` — ${team.season}` : ''}
-                    </p>
-                  )}
-
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    {team.coach && (
-                      <span><Users className="mr-1 inline size-3 align-text-bottom" />Coach: {team.coach}</span>
-                    )}
-                    {nextMatch && (
-                      <span><CalendarDays className="mr-1 inline size-3 align-text-bottom" />Next: {formatMatchDate(nextMatch)}</span>
-                    )}
-                  </div>
-
-                  {/* Player roles */}
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {playerRoles.map((pr) => (
-                      <span
-                        key={pr.name}
-                        className="inline-flex items-center rounded-full bg-[#FDD5D0] px-2 py-0.5 text-[11px] font-medium text-deep-navy"
-                      >
-                        {pr.name}
-                        {pr.role !== 'member' && (
-                          <span className="ml-1 text-[10px] opacity-60 capitalize">({pr.role})</span>
+                        {team.competitionName && (
+                          <p className="mt-0.5 text-xs font-medium text-primary/80">
+                            <Trophy className="mr-1 inline size-3 align-text-bottom" />
+                            {team.competitionName}
+                            {team.season ? ` \u2014 ${team.season}` : ''}
+                          </p>
                         )}
-                      </span>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  {pending > 0 && (
-                    <Badge variant="outline" className="bg-danger-light text-danger border-danger/20 text-xs">
-                      {pending} pending
-                    </Badge>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          {team.coach && (
+                            <span><Users className="mr-1 inline size-3 align-text-bottom" />Coach: {team.coach}</span>
+                          )}
+                          {nextMatch && (
+                            <span><CalendarDays className="mr-1 inline size-3 align-text-bottom" />Next: {formatMatchDate(nextMatch)}</span>
+                          )}
+                        </div>
+
+                        {/* Player roles */}
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {playerRoles.map((pr) => (
+                            <span
+                              key={pr.name}
+                              className="inline-flex items-center rounded-full bg-[#FDD5D0] px-2 py-0.5 text-[11px] font-medium text-deep-navy"
+                            >
+                              {pr.name}
+                              {pr.role !== 'member' && (
+                                <span className="ml-1 text-[10px] opacity-60 capitalize">({pr.role})</span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        {pending > 0 && (
+                          <Badge variant="outline" className="bg-warning-light text-warning border-warning/20 text-xs">
+                            {pending} pending
+                          </Badge>
+                        )}
+                        <ChevronRight className="size-4 text-muted-foreground opacity-40 transition-transform group-hover:translate-x-0.5" />
+                      </div>
+                    </div>
+                  </Link>
+
+                  {/* Team Chat chevron row */}
+                  {team.status === 'active' && (
+                    <Link
+                      href={`/parent/teams/${team.id}/chat`}
+                      className="mt-3 flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+                    >
+                      <MessageSquare className="size-3.5 text-primary/60" />
+                      <span className="flex-1">Team Chat</span>
+                      <ChevronRight className="size-3.5 opacity-40" />
+                    </Link>
                   )}
-                  <ChevronRight className="size-4 text-muted-foreground opacity-40 transition-transform group-hover:translate-x-0.5" />
                 </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       ) : (
-        <div className="mt-6">
+        <div className="animate-fade-up" style={{ animationDelay: '80ms' }}>
           <EmptyState
             icon={Trophy}
             illustration="/images/illustrations/trophy.svg"
