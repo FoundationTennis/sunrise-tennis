@@ -480,6 +480,7 @@ export function WeeklyCalendar({
   hideViewToggle,
   onDayClick,
   initialJumpDate,
+  onViewModeChange,
 }: {
   events: CalendarEvent[]
   onEventClick?: (event: CalendarEvent) => void
@@ -517,6 +518,8 @@ export function WeeklyCalendar({
   onDayClick?: (dayIndex: number) => void
   /** Date string (YYYY-MM-DD) to auto-jump to on first mount (e.g. next available) */
   initialJumpDate?: string
+  /** Called when internal view mode changes (e.g. day header click in week view) */
+  onViewModeChange?: (mode: 'week' | 'day') => void
 }) {
   const [viewMode, setViewMode] = useState<'week' | 'day'>(defaultView ?? 'week')
 
@@ -926,7 +929,7 @@ export function WeeklyCalendar({
               const date = weekDates[i]
               const today = isToday(date)
               return (
-                <button key={day} type="button" onClick={() => { setViewMode('day'); setSelectedDayIndex(i) }} className={cn(
+                <button key={day} type="button" onClick={() => { setViewMode('day'); setSelectedDayIndex(i); onViewModeChange?.('day') }} className={cn(
                   'border-l border-border px-1 py-2 text-center cursor-pointer hover:bg-primary/10 transition-colors',
                   today && 'bg-primary/5',
                   !today && i >= 5 && 'bg-warm-sand/15'
@@ -997,13 +1000,15 @@ export function WeeklyCalendar({
                       const layout = collisionLayout.get(event.id) ?? { col: 0, total: 1 }
                       const widthPct = 100 / layout.total
                       const leftPct = layout.col * widthPct
+                      const isNarrow = layout.total > 1
 
                       return (
                         <button
                           key={event.id}
                           onClick={(e) => handleEventClick(event, e.currentTarget)}
                           className={cn(
-                            'absolute overflow-hidden rounded-md border px-1 py-0.5 text-left transition-all',
+                            'absolute overflow-hidden rounded-md border text-left transition-all',
+                            isNarrow ? 'px-0.5 py-0.5' : 'px-1 py-0.5',
                             isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-background brightness-110 z-10' : 'hover:brightness-110',
                             event.color ?? 'bg-primary border-primary/80 text-white',
                             event.isEnrolled && 'ring-2 ring-white/70 shadow-md',
@@ -1019,20 +1024,20 @@ export function WeeklyCalendar({
                           }}
                         >
                           {/* Enrolled indicator */}
-                          {event.isEnrolled && (
+                          {event.isEnrolled && !isNarrow && (
                             <div className="absolute right-0.5 top-0.5">
                               <CheckCircle className="size-3 drop-shadow-sm" />
                             </div>
                           )}
-                          <p className="truncate text-[11px] font-medium leading-tight pr-3">
+                          <p className={cn('truncate font-medium leading-tight', isNarrow ? 'text-[10px] pr-0' : 'text-[11px] pr-3')}>
                             {event.title}
                           </p>
                           {height >= 24 && (
-                            <p className="truncate text-[10px] opacity-90 leading-tight">
-                              {formatTimeShort(event.startTime)} - {formatTimeShort(event.endTime)}
+                            <p className={cn('truncate opacity-90 leading-tight', isNarrow ? 'text-[9px]' : 'text-[10px]')}>
+                              {formatTimeShort(event.startTime)}{isNarrow ? '' : ` - ${formatTimeShort(event.endTime)}`}
                             </p>
                           )}
-                          {event.subtitle && height >= 36 && (
+                          {event.subtitle && height >= 36 && !isNarrow && (
                             <p className="truncate text-[10px] font-semibold opacity-90 leading-tight">
                               {event.subtitle}
                             </p>

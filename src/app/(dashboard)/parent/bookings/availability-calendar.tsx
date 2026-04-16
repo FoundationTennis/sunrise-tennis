@@ -341,16 +341,26 @@ function MonthlyCalendar({ events, onDayClick }: { events: CalendarEvent[]; onDa
               className={cn(
                 'border-b border-r border-border/30 p-1 text-left transition-colors',
                 dayEvents.length > 0 ? 'hover:bg-primary/5 cursor-pointer' : 'cursor-default',
-                isToday && 'bg-primary/5'
+                hasBooked && 'bg-[#E87450]/5',
+                hasAvailable && !hasBooked && 'bg-primary/5',
+                isToday && 'ring-1 ring-inset ring-primary/30'
               )}
-              style={{ minHeight: 56 }}
+              style={{ minHeight: 64 }}
             >
               <span className={cn('inline-flex size-5 items-center justify-center rounded-full text-[11px]', isToday ? 'bg-primary text-white font-bold' : 'text-foreground')}>{day}</span>
               {dayEvents.length > 0 && (
-                <div className="mt-0.5 flex flex-wrap gap-0.5">
-                  {hasAvailable && <span className="size-1.5 rounded-full bg-primary" />}
-                  {hasBooked && <span className="size-1.5 rounded-full bg-muted-foreground" />}
-                  {dayEvents.length > 2 && <span className="text-[9px] text-muted-foreground">{dayEvents.length}</span>}
+                <div className="mt-0.5 space-y-0.5">
+                  {dayEvents.slice(0, 2).map(ev => (
+                    <div key={ev.id} className={cn(
+                      'truncate rounded px-1 text-[9px] font-medium leading-tight',
+                      ev.selectable ? 'bg-primary/15 text-primary' : 'bg-[#E87450]/15 text-[#E87450]'
+                    )}>
+                      {ev.startTime ? formatTimeShort(ev.startTime) : ''}
+                    </div>
+                  ))}
+                  {dayEvents.length > 2 && (
+                    <span className="text-[9px] text-muted-foreground">+{dayEvents.length - 2}</span>
+                  )}
                 </div>
               )}
             </button>
@@ -676,6 +686,7 @@ export function AvailabilityCalendar({
           initialJumpDate={activeTab === 'availabilities' ? earliestAvailableDate ?? undefined : undefined}
           defaultView={viewMode}
           hideViewToggle
+          onViewModeChange={(mode) => setViewMode(mode)}
           headerLeft={
             <div className="flex items-center gap-2">
               <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
