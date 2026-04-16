@@ -1001,14 +1001,15 @@ export function WeeklyCalendar({
                       const widthPct = 100 / layout.total
                       const leftPct = layout.col * widthPct
                       const isNarrow = layout.total > 1
+                      const isVeryNarrow = layout.total >= 3
 
                       return (
                         <button
                           key={event.id}
                           onClick={(e) => handleEventClick(event, e.currentTarget)}
                           className={cn(
-                            'absolute overflow-hidden rounded-md border text-left transition-all',
-                            isNarrow ? 'px-0.5 py-0.5' : 'px-1 py-0.5',
+                            'absolute overflow-hidden border text-left transition-all',
+                            isVeryNarrow ? 'rounded px-0 py-0' : isNarrow ? 'rounded-md px-0.5 py-0.5' : 'rounded-md px-1 py-0.5',
                             isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-background brightness-110 z-10' : 'hover:brightness-110',
                             event.color ?? 'bg-primary border-primary/80 text-white',
                             event.isEnrolled && 'ring-2 ring-white/70 shadow-md',
@@ -1029,18 +1030,27 @@ export function WeeklyCalendar({
                               <CheckCircle className="size-3 drop-shadow-sm" />
                             </div>
                           )}
-                          <p className={cn('truncate font-medium leading-tight', isNarrow ? 'text-[10px] pr-0' : 'text-[11px] pr-3')}>
-                            {event.title}
-                          </p>
-                          {height >= 24 && (
-                            <p className={cn('truncate opacity-90 leading-tight', isNarrow ? 'text-[9px]' : 'text-[10px]')}>
-                              {formatTimeShort(event.startTime)}{isNarrow ? '' : ` - ${formatTimeShort(event.endTime)}`}
+                          {isVeryNarrow ? (
+                            /* Ultra-compact: just time vertically */
+                            <p className="truncate text-[8px] font-bold leading-tight px-px pt-px opacity-90">
+                              {formatTimeShort(event.startTime)}
                             </p>
-                          )}
-                          {event.subtitle && height >= 36 && !isNarrow && (
-                            <p className="truncate text-[10px] font-semibold opacity-90 leading-tight">
-                              {event.subtitle}
-                            </p>
+                          ) : (
+                            <>
+                              <p className={cn('truncate font-medium leading-tight', isNarrow ? 'text-[10px] pr-0' : 'text-[11px] pr-3')}>
+                                {event.title}
+                              </p>
+                              {height >= 24 && (
+                                <p className={cn('truncate opacity-90 leading-tight', isNarrow ? 'text-[9px]' : 'text-[10px]')}>
+                                  {formatTimeShort(event.startTime)}{isNarrow ? '' : ` - ${formatTimeShort(event.endTime)}`}
+                                </p>
+                              )}
+                              {event.subtitle && height >= 36 && !isNarrow && (
+                                <p className="truncate text-[10px] font-semibold opacity-90 leading-tight">
+                                  {event.subtitle}
+                                </p>
+                              )}
+                            </>
                           )}
                           {event.capacityLabel && height >= 36 && !hideCapacity && (
                             <span className="absolute bottom-0.5 right-0.5 rounded px-1 text-[9px] font-bold opacity-90 bg-white/20">
